@@ -1,0 +1,247 @@
+import { Collection, Db, ObjectId } from "mongodb";
+import { getDb } from "./db";
+
+/* ─────────────────────────────────────────────────────────────
+ * Collection names
+ * ───────────────────────────────────────────────────────────── */
+export const COLLECTIONS = {
+  users: "users",
+  projects: "projects",
+  surveys: "surveys",
+  requisitions: "requisitions",
+  expenses: "expenses",
+  ledger: "fund_ledger",
+  reports: "reports",
+  counters: "counters",
+} as const;
+
+/* ─────────────────────────────────────────────────────────────
+ * Shared enums / literal unions
+ * ───────────────────────────────────────────────────────────── */
+export type Role = "director" | "cm";
+export type SyncStatus = "pending" | "synced" | "failed";
+export type SurveyStatus = "complete" | "partial" | "refused_midway";
+export type RequisitionStatus = "pending" | "approved" | "rejected" | "paid";
+export type LedgerType = "allocation" | "debit" | "adjustment";
+export type ReportPeriod = "daily" | "weekly" | "monthly";
+
+/* ─────────────────────────────────────────────────────────────
+ * Documents
+ * ───────────────────────────────────────────────────────────── */
+export interface UserDoc {
+  _id?: ObjectId;
+  role: Role;
+  name: string;
+  email: string; // lowercased, unique — used as login id
+  passwordHash: string;
+  phone?: string;
+  avatarUrl?: string;
+  avatarKey?: string;
+  /** For CMs: the M01..M06 style mobiliser code used in household IDs. */
+  mobiliserCode?: string;
+  /** For CMs: project they belong to. */
+  projectId?: ObjectId;
+  /** For CMs: settlement backend codes they are assigned to. */
+  communities?: string[];
+  active: boolean;
+  createdBy?: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProjectDoc {
+  _id?: ObjectId;
+  name: string;
+  code?: string;
+  funder?: string; // e.g. "Azim Premji Foundation"
+  description?: string;
+  currency: string; // e.g. "INR"
+  /** Total sanctioned funds for the project. */
+  totalFunds: number;
+  /** Sum of approved+paid debits. Derived, kept for quick reads. */
+  spentFunds: number;
+  startDate?: Date;
+  endDate?: Date;
+  active: boolean;
+  createdBy?: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SyncState {
+  status: SyncStatus;
+  frappeId?: string; // e.g. "HHD11736" — the created Frappe doc name
+  attempts: number;
+  lastAttemptAt?: Date;
+  syncedAt?: Date;
+  error?: string;
+}
+
+export interface SurveyDoc {
+  _id?: ObjectId;
+  projectId: ObjectId;
+  mobiliserId: ObjectId;
+  mobiliserCode?: string;
+  settlementCode: string; // backend code e.g. "refugee_colony"
+  /** Human household id, e.g. REF-M01-0007. */
+  householdId: string;
+  formVersion: string;
+  status: SurveyStatus;
+  /** All questionnaire answers keyed by web-app variable name. */
+  data: Record<string, unknown>;
+  /** Repeat groups. */
+  members?: Record<string, unknown>[];
+  children_0_3?: Record<string, unknown>[];
+  children_4_12?: Record<string, unknown>[];
+  youth_13_24?: Record<string, unknown>[];
+  gps?: { lat: number; lng: number; accuracy?: number } | null;
+  /** R2 object keys/urls attached to the survey (consent photo, etc.). */
+  images?: { key: string; url: string; kind?: string }[];
+  sync: SyncState;
+  submittedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface RequisitionDoc {
+  _id?: ObjectId;
+  projectId: ObjectId;
+  mobiliserId: ObjectId;
+  category: string; // travel, materials, refreshments, other...
+  amount: number;
+  currency: string;
+  purpose: string;
+  description?: string;
+  /** Receipt / proof images in R2. */
+  receipts: { key: string; url: string }[];
+  status: RequisitionStatus;
+  reviewedBy?: ObjectId;
+  reviewedAt?: Date;
+  reviewNote?: string;
+  paidAt?: Date;
+  paymentRef?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ExpenseDoc {
+  _id?: ObjectId;
+  projectId: ObjectId;
+  category: string; // travel, materials, camp, salary, refreshments, other...
+  amount: number;
+  currency: string;
+  description?: string;
+  paidTo?: string;
+  date: Date;
+  receipts: { key: string; url: string }[];
+  createdBy?: ObjectId;
+  createdByName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface LedgerDoc {
+  _id?: ObjectId;
+  projectId: ObjectId;
+  type: LedgerType;
+  amount: number; // positive number; `type` gives direction
+  /** What this entry refers to (e.g. requisition). */
+  refType?: string;
+  refId?: ObjectId;
+  balanceAfter: number;
+  note?: string;
+  createdBy?: ObjectId;
+  createdAt: Date;
+}
+
+export interface ReportDoc {
+  _id?: ObjectId;
+  projectId: ObjectId;
+  mobiliserId: ObjectId;
+  period: ReportPeriod;
+  /** The day/week/month this report covers (start of period). */
+  periodDate: Date;
+  metrics: Record<string, number>; // householdsVisited, meetings, etc.
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CounterDoc {
+  _id: string; // the counter key
+  seq: number;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Typed collection getters
+ * ───────────────────────────────────────────────────────────── */
+export const usersCol = () => col<UserDoc>(COLLECTIONS.users);
+export const projectsCol = () => col<ProjectDoc>(COLLECTIONS.projects);
+export const surveysCol = () => col<SurveyDoc>(COLLECTIONS.surveys);
+export const requisitionsCol = () => col<RequisitionDoc>(COLLECTIONS.requisitions);
+export const expensesCol = () => col<ExpenseDoc>(COLLECTIONS.expenses);
+export const ledgerCol = () => col<LedgerDoc>(COLLECTIONS.ledger);
+export const reportsCol = () => col<ReportDoc>(COLLECTIONS.reports);
+export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
+
+async function col<T extends import("mongodb").Document>(
+  name: string
+): Promise<Collection<T>> {
+  const db = await getDb();
+  return db.collection<T>(name);
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Atomic sequence counter (for household IDs, etc.)
+ * ───────────────────────────────────────────────────────────── */
+export async function nextSequence(key: string): Promise<number> {
+  const counters = await countersCol();
+  const res = await counters.findOneAndUpdate(
+    { _id: key },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: "after" }
+  );
+  return res?.seq ?? 1;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Index setup — call once on boot (idempotent).
+ * ───────────────────────────────────────────────────────────── */
+let indexesEnsured = false;
+export async function ensureIndexes(): Promise<void> {
+  if (indexesEnsured) return;
+  const db: Db = await getDb();
+
+  await Promise.all([
+    db
+      .collection(COLLECTIONS.users)
+      .createIndex({ email: 1 }, { unique: true }),
+    db.collection(COLLECTIONS.users).createIndex({ projectId: 1, role: 1 }),
+    db.collection(COLLECTIONS.projects).createIndex({ createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.surveys)
+      .createIndex({ householdId: 1 }, { unique: true }),
+    db
+      .collection(COLLECTIONS.surveys)
+      .createIndex({ mobiliserId: 1, createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.surveys)
+      .createIndex({ settlementCode: 1, createdAt: -1 }),
+    db.collection(COLLECTIONS.surveys).createIndex({ "sync.status": 1 }),
+    db
+      .collection(COLLECTIONS.requisitions)
+      .createIndex({ projectId: 1, status: 1, createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.requisitions)
+      .createIndex({ mobiliserId: 1, createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.expenses)
+      .createIndex({ projectId: 1, date: -1 }),
+    db.collection(COLLECTIONS.ledger).createIndex({ projectId: 1, createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.reports)
+      .createIndex({ mobiliserId: 1, period: 1, periodDate: -1 }),
+  ]);
+
+  indexesEnsured = true;
+}
