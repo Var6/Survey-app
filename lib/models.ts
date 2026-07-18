@@ -10,6 +10,7 @@ export const COLLECTIONS = {
   surveys: "surveys",
   requisitions: "requisitions",
   expenses: "expenses",
+  payments: "payments",
   ledger: "fund_ledger",
   reports: "reports",
   counters: "counters",
@@ -22,6 +23,8 @@ export type Role = "director" | "cm";
 export type SyncStatus = "pending" | "synced" | "failed";
 export type SurveyStatus = "complete" | "partial" | "refused_midway";
 export type RequisitionStatus = "pending" | "approved" | "rejected" | "paid";
+export type PaymentType = "salary" | "benefit" | "bonus" | "other";
+export type PaymentStatus = "pending" | "paid";
 export type LedgerType = "allocation" | "debit" | "adjustment";
 export type ReportPeriod = "daily" | "weekly" | "monthly";
 
@@ -140,6 +143,26 @@ export interface ExpenseDoc {
   updatedAt: Date;
 }
 
+export interface PaymentDoc {
+  _id?: ObjectId;
+  projectId: ObjectId;
+  mobiliserId: ObjectId;
+  mobiliserName?: string;
+  type: PaymentType; // salary, benefit, bonus, other
+  amount: number;
+  currency: string;
+  /** For salary: the month it covers, e.g. "2026-07". */
+  period?: string;
+  note?: string;
+  status: PaymentStatus;
+  createdBy?: ObjectId;
+  createdByName?: string;
+  paidAt?: Date;
+  paymentRef?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface LedgerDoc {
   _id?: ObjectId;
   projectId: ObjectId;
@@ -180,6 +203,7 @@ export const projectsCol = () => col<ProjectDoc>(COLLECTIONS.projects);
 export const surveysCol = () => col<SurveyDoc>(COLLECTIONS.surveys);
 export const requisitionsCol = () => col<RequisitionDoc>(COLLECTIONS.requisitions);
 export const expensesCol = () => col<ExpenseDoc>(COLLECTIONS.expenses);
+export const paymentsCol = () => col<PaymentDoc>(COLLECTIONS.payments);
 export const ledgerCol = () => col<LedgerDoc>(COLLECTIONS.ledger);
 export const reportsCol = () => col<ReportDoc>(COLLECTIONS.reports);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
@@ -237,6 +261,9 @@ export async function ensureIndexes(): Promise<void> {
     db
       .collection(COLLECTIONS.expenses)
       .createIndex({ projectId: 1, date: -1 }),
+    db
+      .collection(COLLECTIONS.payments)
+      .createIndex({ mobiliserId: 1, status: 1, createdAt: -1 }),
     db.collection(COLLECTIONS.ledger).createIndex({ projectId: 1, createdAt: -1 }),
     db
       .collection(COLLECTIONS.reports)

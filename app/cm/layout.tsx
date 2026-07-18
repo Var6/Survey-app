@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import AppHeader from "@/components/AppHeader";
 import RoleNav from "@/components/RoleNav";
+import OfflineSync from "@/components/OfflineSync";
 
 const NAV = [
   { href: "/cm", label: "Home" },
@@ -29,6 +30,7 @@ export default async function CmLayout({
       />
       <RoleNav items={NAV} homeHref="/cm" />
       <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
+      <OfflineSync />
     </div>
   );
 }

@@ -36,22 +36,35 @@ async function login(): Promise<string> {
   if (cachedCookie) return cachedCookie;
   const res = await fetch(`${baseUrl()}/api/method/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({
       usr: process.env.FRAPPE_USR,
       pwd: process.env.FRAPPE_PWD,
     }),
   });
   if (!res.ok) {
-    throw new Error(`Frappe login failed (${res.status})`);
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Frappe login failed (${res.status})${detail ? `: ${detail.slice(0, 160)}` : ""}`
+    );
   }
-  const setCookie = res.headers.get("set-cookie");
-  if (!setCookie) throw new Error("Frappe login returned no session cookie");
-  // Keep just the cookie name=value pairs.
-  cachedCookie = setCookie
-    .split(/,(?=[^;]+?=)/)
+
+  // Collect Set-Cookie values. Node/undici exposes getSetCookie() which
+  // correctly returns each cookie separately (a plain get() joins them and
+  // breaks on commas inside Expires dates).
+  const headers = res.headers as Headers & { getSetCookie?: () => string[] };
+  const raw =
+    typeof headers.getSetCookie === "function"
+      ? headers.getSetCookie()
+      : ([res.headers.get("set-cookie")].filter(Boolean) as string[]);
+
+  const pairs = raw
     .map((c) => c.split(";")[0].trim())
-    .join("; ");
+    .filter((c) => c.includes("="));
+  if (pairs.length === 0) {
+    throw new Error("Frappe login returned no session cookie");
+  }
+  cachedCookie = pairs.join("; ");
   return cachedCookie;
 }
 
@@ -101,31 +114,27 @@ async function frappeRequest(
   return body;
 }
 
-/* ── Field mapping: our survey → Frappe Household Detail ─────── *
- * NOTE: Confirm these against the actual `Household Detail` DocType with the
- * funder. Only the funder-required subset is mapped here.                    */
+/* ── Field mapping: our survey → Frappe `Household Detail` ─────── *
+ * These are exactly the fields the funder's DocType exposes (per the working
+ * create test). Only this subset is pushed; everything else stays in Mongo. */
 export function mapSurveyToFrappe(survey: SurveyDoc): Record<string, unknown> {
   const d = survey.data || {};
   const settlement = SETTLEMENT_BY_CODE[survey.settlementCode];
+  const area = settlement?.label ?? survey.settlementCode;
 
   const payload: Record<string, unknown> = {
     doctype: doctype(),
-    // stable external reference so we can match/dedupe
-    household_id: survey.householdId,
+    user_fullname: (d.respondent_name as string) || (d.head_name as string) || "",
     surveyor_name: (d.mobiliser_name as string) || survey.mobiliserCode || "",
-    date: d.survey_date ?? null,
-    household_head_name: d.head_name ?? "",
-    user_fullname: d.respondent_name ?? d.head_name ?? "",
-    total_family_members: toInt(d.hh_total_members),
-    area: settlement?.label ?? survey.settlementCode,
-    address: d.household_landmark ?? "",
+    date: (d.survey_date as string) || null,
+    household_head_name: (d.head_name as string) || "",
+    total_family_members: toInt(d.hh_total_members) ?? 0,
+    address: (d.household_landmark as string) || area,
+    area,
+    household_income: incomeFromRange(d.monthly_income_range as string | undefined),
   };
 
-  // Only send income when we actually have a number.
-  const income = toInt(d.household_income);
-  if (income !== undefined) payload.household_income = income;
-
-  // Drop null/undefined keys to avoid overwriting with blanks.
+  // Drop null keys so we never overwrite Frappe fields with blanks.
   for (const k of Object.keys(payload)) {
     if (payload[k] === null || payload[k] === undefined) delete payload[k];
   }
@@ -135,6 +144,24 @@ export function mapSurveyToFrappe(survey: SurveyDoc): Record<string, unknown> {
 function toInt(v: unknown): number | undefined {
   const n = Number(v);
   return Number.isFinite(n) ? Math.trunc(n) : undefined;
+}
+
+/** We collect income as a band; Frappe wants a number, so use a band midpoint. */
+function incomeFromRange(code?: string): number {
+  switch (code) {
+    case "less_5000":
+      return 3000;
+    case "5000_10000":
+      return 7500;
+    case "10001_15000":
+      return 12500;
+    case "15001_25000":
+      return 20000;
+    case "more_25000":
+      return 30000;
+    default:
+      return 0;
+  }
 }
 
 /* ── Push (create or update) ────────────────────────────────── */

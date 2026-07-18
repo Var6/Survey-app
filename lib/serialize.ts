@@ -6,6 +6,7 @@ import type {
   SurveyDoc,
   ExpenseDoc,
   LedgerDoc,
+  PaymentDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
 
@@ -88,6 +89,28 @@ export function publicExpense(
     receipts: e.receipts ?? [],
     createdByName: e.createdByName ?? null,
     createdAt: e.createdAt,
+  };
+}
+
+export function publicPayment(
+  p: PaymentDoc,
+  extra?: { projectName?: string }
+) {
+  return {
+    id: String(p._id),
+    projectId: String(p.projectId),
+    projectName: extra?.projectName ?? null,
+    mobiliserId: String(p.mobiliserId),
+    mobiliserName: p.mobiliserName ?? null,
+    type: p.type,
+    amount: p.amount,
+    currency: p.currency,
+    period: p.period ?? null,
+    note: p.note ?? null,
+    status: p.status,
+    paidAt: p.paidAt ?? null,
+    paymentRef: p.paymentRef ?? null,
+    createdAt: p.createdAt,
   };
 }
 

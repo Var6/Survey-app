@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, formatMoney, formatDate } from "@/lib/client";
-import { Card, Empty, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
+import { Card, Empty, Badge, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import RequisitionsClient from "@/components/RequisitionsClient";
 
 interface Project {
@@ -34,11 +34,24 @@ interface LedgerEntry {
   createdAt: string;
 }
 
-const TABS = ["overview", "expenses", "reimbursements", "statement"] as const;
+interface Payment {
+  id: string;
+  mobiliserName: string | null;
+  type: string;
+  amount: number;
+  currency: string;
+  period: string | null;
+  note: string | null;
+  status: string;
+  createdAt: string;
+}
+
+const TABS = ["overview", "expenses", "payroll", "reimbursements", "statement"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABEL: Record<Tab, string> = {
   overview: "Overview",
   expenses: "Expenses",
+  payroll: "Payroll",
   reimbursements: "Reimbursements",
   statement: "Statement",
 };
@@ -77,6 +90,7 @@ export default function FinanceClient() {
 
       {tab === "overview" && <Overview projects={projects} />}
       {tab === "expenses" && <Expenses projects={projects} />}
+      {tab === "payroll" && <Payroll />}
       {tab === "reimbursements" && <RequisitionsClient scope="director" />}
       {tab === "statement" && <Statement projects={projects} />}
     </div>
@@ -304,6 +318,175 @@ function Expenses({ projects }: { projects: Project[] }) {
                   ))}
                 </div>
               )}
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PAY_TYPES = ["salary", "benefit", "bonus", "other"];
+
+function Payroll() {
+  const [cms, setCms] = useState<{ id: string; name: string }[]>([]);
+  const [rows, setRows] = useState<Payment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const [mobiliserId, setMobiliserId] = useState("");
+  const [type, setType] = useState("salary");
+  const [amount, setAmount] = useState("");
+  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [note, setNote] = useState("");
+  const [payNow, setPayNow] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [u, p] = await Promise.all([
+        apiFetch<{ users: { id: string; name: string }[] }>("/api/users"),
+        apiFetch<{ payments: Payment[] }>("/api/payments"),
+      ]);
+      setCms(u.users);
+      setRows(p.payments);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setSaving(true);
+    try {
+      const res = await apiFetch<{ warning?: string }>("/api/payments", {
+        method: "POST",
+        body: JSON.stringify({
+          mobiliserId,
+          type,
+          amount: Number(amount),
+          period: type === "salary" ? period : undefined,
+          note,
+          payNow,
+        }),
+      });
+      if (res.warning) setErr(res.warning);
+      setAmount("");
+      setNote("");
+      setShowForm(false);
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function pay(id: string) {
+    try {
+      await apiFetch(`/api/payments/${id}/pay`, { method: "POST" });
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <button className={btnPrimary} onClick={() => setShowForm((s) => !s)}>
+        {showForm ? "Cancel" : "+ Pay salary / benefit"}
+      </button>
+
+      {showForm && (
+        <Card>
+          <form onSubmit={create} className="space-y-3">
+            <div>
+              <label className={labelClass}>Mobiliser *</label>
+              <select className={inputClass} value={mobiliserId} onChange={(e) => setMobiliserId(e.target.value)} required>
+                <option value="">— select —</option>
+                {cms.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Type</label>
+                <select className={inputClass} value={type} onChange={(e) => setType(e.target.value)}>
+                  {PAY_TYPES.map((t) => (
+                    <option key={t} value={t} className="capitalize">{t}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Amount (₹) *</label>
+                <input className={inputClass} type="number" min="1" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+              </div>
+            </div>
+            {type === "salary" && (
+              <div>
+                <label className={labelClass}>Salary month</label>
+                <input className={inputClass} type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
+              </div>
+            )}
+            <div>
+              <label className={labelClass}>Note</label>
+              <input className={inputClass} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. July salary, travel benefit" />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+              <input type="checkbox" checked={payNow} onChange={(e) => setPayNow(e.target.checked)} />
+              Pay now (debit project funds immediately)
+            </label>
+            {err && <p className="text-sm text-red-600">{err}</p>}
+            <button type="submit" className={btnPrimary} disabled={saving || !mobiliserId}>
+              {saving ? "Saving…" : payNow ? "Pay" : "Record"}
+            </button>
+          </form>
+        </Card>
+      )}
+
+      {err && !showForm && <p className="text-sm text-red-600">{err}</p>}
+
+      {loading ? (
+        <p className="text-sm text-zinc-500">Loading…</p>
+      ) : rows.length === 0 ? (
+        <Empty>No salary or benefit payments yet.</Empty>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((p) => (
+            <Card key={p.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                    {formatMoney(p.amount, p.currency)}{" "}
+                    <span className="text-xs font-normal capitalize text-zinc-400">
+                      · {p.type}
+                      {p.period ? ` · ${p.period}` : ""}
+                    </span>
+                  </p>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                    {p.mobiliserName}
+                    {p.note ? ` — ${p.note}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-xs text-zinc-400">{formatDate(p.createdAt)}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <Badge value={p.status} />
+                  {p.status === "pending" && (
+                    <button className={btnGhost} onClick={() => pay(p.id)}>
+                      Pay now
+                    </button>
+                  )}
+                </div>
+              </div>
             </Card>
           ))}
         </div>

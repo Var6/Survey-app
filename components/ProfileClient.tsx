@@ -1,13 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { apiFetch } from "@/lib/client";
+import { apiFetch, formatMoney, formatDate } from "@/lib/client";
 import type { PublicUser } from "@/lib/serialize";
-import { Card, inputClass, labelClass, btnPrimary } from "@/components/ui";
+import { Card, Badge, inputClass, labelClass, btnPrimary } from "@/components/ui";
 import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
+
+interface PaymentRow {
+  id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  period: string | null;
+  note: string | null;
+  status: string;
+  createdAt: string;
+}
 
 export default function ProfileClient() {
   const [user, setUser] = useState<PublicUser | null>(null);
+  const [payments, setPayments] = useState<PaymentRow[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -29,6 +41,9 @@ export default function ProfileClient() {
         setPhone(user.phone || "");
       })
       .catch((e) => setErr(e.message));
+    apiFetch<{ payments: PaymentRow[] }>("/api/payments")
+      .then(({ payments }) => setPayments(payments))
+      .catch(() => {});
   }, []);
 
   async function saveDetails(e: React.FormEvent) {
@@ -93,6 +108,10 @@ export default function ProfileClient() {
   const communities = (user.communities || [])
     .map((c) => SETTLEMENT_BY_CODE[c]?.label || c)
     .join(", ");
+
+  const totalPaid = payments
+    .filter((p) => p.status === "paid")
+    .reduce((s, p) => s + p.amount, 0);
 
   return (
     <div className="space-y-5">
@@ -162,6 +181,50 @@ export default function ProfileClient() {
           )}
         </dl>
       </Card>
+
+      {/* Earnings (salary / benefits) */}
+      {user.role === "cm" && (
+        <Card>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">
+              Salary &amp; benefits
+            </h2>
+            <span className="text-sm font-bold text-teal-700 dark:text-teal-400">
+              {formatMoney(totalPaid, payments[0]?.currency || "INR")} paid
+            </span>
+          </div>
+          {payments.length === 0 ? (
+            <p className="mt-2 text-sm text-zinc-500">
+              No salary or benefits recorded yet.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {payments.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between rounded-lg bg-zinc-100 px-3 py-2 dark:bg-zinc-900"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium capitalize text-zinc-900 dark:text-zinc-100">
+                      {p.type}
+                      {p.period ? ` · ${p.period}` : ""}
+                    </p>
+                    <p className="truncate text-xs text-zinc-500">
+                      {p.note || formatDate(p.createdAt)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      {formatMoney(p.amount, p.currency)}
+                    </p>
+                    <Badge value={p.status} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Edit details */}
       <Card>

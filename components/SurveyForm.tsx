@@ -17,6 +17,7 @@ import {
 } from "@/lib/questionnaire";
 import { inputClass, labelClass, btnPrimary } from "@/components/ui";
 import { MOBILISER_CODES } from "@/lib/questionnaire/settlements";
+import { enqueueSurvey } from "@/lib/outbox";
 
 type Values = Record<string, unknown>;
 type Rows = Record<string, Values[]>;
@@ -280,32 +281,51 @@ export default function SurveyForm({
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    const countOf = (n: string) => Math.min(Number(values[n]) || 0, REPEAT_CAP);
+    const slice = (name: string, n: string) =>
+      Array.from({ length: countOf(n) }, (_, i) => (rows[name] || [])[i] || {});
+
+    const payload = {
+      settlementCode: values.settlement_name,
+      mobiliserCode: values.mobiliser_code,
+      projectId: role === "director" ? projectId : undefined,
+      formVersion: values.form_version || "V0.1",
+      status: (values.form_complete_status as string) || "complete",
+      data: values,
+      members: slice("household_members", "hh_total_members"),
+      children_0_3: slice("children_0_3", "num_children_0_3"),
+      children_4_12: slice("children_4_12", "num_children_4_12"),
+      youth_13_24: slice("youth_13_24", "num_youth_13_24"),
+      gps: (values.gps_location as object) || null,
+    };
+    const label = (values.head_name as string) || (values.respondent_name as string) || "Household";
+    const home = role === "director" ? "/director/surveys" : "/cm/surveys";
+
+    // Mobiliser is offline → save on device; OfflineSync uploads it later.
+    if (role === "cm" && typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueSurvey(payload, label);
+      router.replace(home);
+      router.refresh();
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const countOf = (n: string) => Math.min(Number(values[n]) || 0, REPEAT_CAP);
-      const slice = (name: string, n: string) =>
-        Array.from({ length: countOf(n) }, (_, i) => (rows[name] || [])[i] || {});
-
       await apiFetch("/api/surveys", {
         method: "POST",
-        body: JSON.stringify({
-          settlementCode: values.settlement_name,
-          mobiliserCode: values.mobiliser_code,
-          projectId: role === "director" ? projectId : undefined,
-          formVersion: values.form_version || "V0.1",
-          status: (values.form_complete_status as string) || "complete",
-          data: values,
-          members: slice("household_members", "hh_total_members"),
-          children_0_3: slice("children_0_3", "num_children_0_3"),
-          children_4_12: slice("children_4_12", "num_children_4_12"),
-          youth_13_24: slice("youth_13_24", "num_youth_13_24"),
-          gps: (values.gps_location as object) || null,
-        }),
+        body: JSON.stringify(payload),
       });
-      router.replace(role === "director" ? "/director/surveys" : "/cm/surveys");
+      router.replace(home);
       router.refresh();
     } catch (e) {
-      setTopError((e as Error).message);
+      // A network failure (flaky connection) throws TypeError — queue it for CM.
+      if (role === "cm" && e instanceof TypeError) {
+        enqueueSurvey(payload, label);
+        router.replace(home);
+        router.refresh();
+      } else {
+        setTopError((e as Error).message);
+      }
     } finally {
       setSubmitting(false);
     }
