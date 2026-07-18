@@ -21,8 +21,13 @@ interface CM {
   name: string;
 }
 
-export default function SurveysClient({ scope }: { scope: "director" | "cm" }) {
-  const isDirector = scope === "director";
+export default function SurveysClient({
+  scope,
+}: {
+  scope: "director" | "cm" | "mis";
+}) {
+  const isDirector = scope === "director" || scope === "mis";
+  const canExport = scope === "director";
   const [rows, setRows] = useState<SurveyRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -96,7 +101,7 @@ export default function SurveysClient({ scope }: { scope: "director" | "cm" }) {
             <option value="pending">Pending</option>
           </select>
         </div>
-        {isDirector && (
+        {canExport && (
           <a
             href={`/api/surveys/export?${query()}`}
             className={`${btnGhost} mt-3 inline-block`}

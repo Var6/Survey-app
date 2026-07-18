@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client";
-import { Card, Empty, inputClass, labelClass, btnPrimary } from "@/components/ui";
+import { Card, Empty, inputClass, btnPrimary, btnGhost } from "@/components/ui";
+import ReportForm from "@/components/ReportForm";
+import ReportDetail from "@/components/ReportDetail";
 
 interface Report {
   id: string;
@@ -10,20 +12,15 @@ interface Report {
   period: string;
   periodDate: string;
   metrics: Record<string, number>;
+  data: Record<string, unknown>;
   notes: string | null;
 }
 
-const METRICS: [string, string][] = [
-  ["householdsVisited", "Households visited"],
-  ["surveysDone", "Surveys done"],
-  ["youthMeetings", "Youth meetings"],
-  ["womenMeetings", "Women / girls meetings"],
-  ["childrenActivities", "Children activities"],
-  ["enrolmentsSupported", "Enrolments supported"],
-  ["entitlementsFollowedUp", "Entitlements followed up"],
-  ["healthReferrals", "Health referrals"],
-];
-const METRIC_LABEL = Object.fromEntries(METRICS);
+const STATUS: Record<string, { label: string; cls: string }> = {
+  on_track: { label: "ठीक चल रहा है", cls: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300" },
+  minor: { label: "मामूली दिक्कतें", cls: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" },
+  significant: { label: "बड़ी दिक्कतें", cls: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300" },
+};
 
 export default function ReportsClient({ scope }: { scope: "director" | "cm" }) {
   const isDirector = scope === "director";
@@ -31,14 +28,8 @@ export default function ReportsClient({ scope }: { scope: "director" | "cm" }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [period, setPeriod] = useState("");
-
-  // CM form
   const [showForm, setShowForm] = useState(false);
-  const [fPeriod, setFPeriod] = useState("daily");
-  const [fDate, setFDate] = useState(new Date().toISOString().slice(0, 10));
-  const [metrics, setMetrics] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,41 +48,28 @@ export default function ReportsClient({ scope }: { scope: "director" | "cm" }) {
     load();
   }, [load]);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setSaving(true);
-    const numericMetrics: Record<string, number> = {};
-    for (const [k, v] of Object.entries(metrics)) {
-      const n = Number(v);
-      if (v !== "" && Number.isFinite(n)) numericMetrics[k] = n;
-    }
-    try {
-      await apiFetch("/api/reports", {
-        method: "POST",
-        body: JSON.stringify({
-          period: fPeriod,
-          periodDate: fDate,
-          metrics: numericMetrics,
-          notes,
-        }),
-      });
-      setMetrics({});
-      setNotes("");
-      setShowForm(false);
-      await load();
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
+  // CM: filling a new daily report.
+  if (!isDirector && showForm) {
+    return (
+      <div>
+        <button className={`${btnGhost} mb-3`} onClick={() => setShowForm(false)}>
+          ← रद्द करें
+        </button>
+        <ReportForm
+          onDone={() => {
+            setShowForm(false);
+            load();
+          }}
+        />
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
       {!isDirector && (
-        <button className={btnPrimary} onClick={() => setShowForm((s) => !s)}>
-          {showForm ? "Cancel" : "+ New report"}
+        <button className={btnPrimary} onClick={() => setShowForm(true)}>
+          + नई दैनिक रिपोर्ट
         </button>
       )}
       {isDirector && (
@@ -103,83 +81,70 @@ export default function ReportsClient({ scope }: { scope: "director" | "cm" }) {
         </select>
       )}
 
-      {showForm && !isDirector && (
-        <Card>
-          <form onSubmit={create} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>Period</label>
-                <select className={inputClass} value={fPeriod} onChange={(e) => setFPeriod(e.target.value)}>
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Date</label>
-                <input className={inputClass} type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {METRICS.map(([key, label]) => (
-                <div key={key}>
-                  <label className={labelClass}>{label}</label>
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min="0"
-                    value={metrics[key] ?? ""}
-                    onChange={(e) => setMetrics((m) => ({ ...m, [key]: e.target.value }))}
-                  />
-                </div>
-              ))}
-            </div>
-            <div>
-              <label className={labelClass}>Notes</label>
-              <textarea className={inputClass} rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
-            {err && <p className="text-sm text-red-600">{err}</p>}
-            <button type="submit" className={btnPrimary} disabled={saving}>
-              {saving ? "Saving…" : "Submit report"}
-            </button>
-          </form>
-        </Card>
-      )}
-
-      {err && !showForm && <p className="text-sm text-red-600">{err}</p>}
+      {err && <p className="text-sm text-red-600">{err}</p>}
 
       {loading ? (
         <p className="text-sm text-zinc-500">Loading…</p>
       ) : rows.length === 0 ? (
-        <Empty>No reports {isDirector ? "submitted yet" : "yet"}.</Empty>
+        <Empty>No reports yet.</Empty>
       ) : (
         <div className="space-y-3">
-          {rows.map((r) => (
-            <Card key={r.id}>
-              <div className="flex items-center justify-between">
-                <p className="font-semibold capitalize text-zinc-900 dark:text-zinc-50">
-                  {r.period} report
-                </p>
-                <p className="text-xs text-zinc-400">{formatDate(r.periodDate)}</p>
-              </div>
-              {isDirector && r.mobiliserName && (
-                <p className="text-sm text-zinc-500">{r.mobiliserName}</p>
-              )}
-              {Object.keys(r.metrics).length > 0 && (
-                <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  {Object.entries(r.metrics).map(([k, v]) => (
-                    <div key={k} className="rounded-lg bg-zinc-100 px-2 py-1.5 dark:bg-zinc-900">
-                      <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">{v}</p>
-                      <p className="text-[11px] leading-tight text-zinc-500">
-                        {METRIC_LABEL[k] || k}
+          {rows.map((r) => {
+            const hasData = r.data && Object.keys(r.data).length > 0;
+            const status = STATUS[String(r.data?.overall_status || "")];
+            const surveys = r.data?.surveys_completed;
+            const isOpen = expanded === r.id;
+            return (
+              <Card key={r.id}>
+                <button
+                  className="flex w-full items-start justify-between gap-3 text-left"
+                  onClick={() => setExpanded(isOpen ? null : r.id)}
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold capitalize text-zinc-900 dark:text-zinc-50">
+                      {r.period} report
+                      {isDirector && r.mobiliserName ? ` · ${r.mobiliserName}` : ""}
+                    </p>
+                    <p className="text-xs text-zinc-400">{formatDate(r.periodDate)}</p>
+                    {surveys != null && (
+                      <p className="mt-0.5 text-sm text-zinc-500">
+                        सर्वे: {String(surveys)}
+                        {Array.isArray(r.data?.settlements_worked)
+                          ? ` · बस्तियाँ: ${(r.data.settlements_worked as string[]).length}`
+                          : ""}
                       </p>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {r.notes && <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{r.notes}</p>}
-            </Card>
-          ))}
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    {status && (
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.cls}`}>
+                        {status.label}
+                      </span>
+                    )}
+                    <span className="text-xs text-teal-600 dark:text-teal-400">
+                      {isOpen ? "छुपाएँ" : "देखें"}
+                    </span>
+                  </div>
+                </button>
+
+                {isOpen && hasData && <ReportDetail data={r.data} />}
+
+                {isOpen && !hasData && Object.keys(r.metrics).length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {Object.entries(r.metrics).map(([k, v]) => (
+                      <div key={k} className="rounded-lg bg-zinc-100 px-2 py-1.5 dark:bg-zinc-900">
+                        <p className="text-base font-bold text-zinc-900 dark:text-zinc-100">{v}</p>
+                        <p className="text-[11px] leading-tight text-zinc-500">{k}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {isOpen && r.notes && (
+                  <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{r.notes}</p>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

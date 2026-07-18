@@ -11,6 +11,7 @@ const NAV = [
   { href: "/director/sync", label: "Sync" },
   { href: "/director/finance", label: "Finance" },
   { href: "/director/reports", label: "Reports" },
+  { href: "/director/weekly", label: "Weekly" },
   { href: "/director/profile", label: "Profile" },
 ];
 

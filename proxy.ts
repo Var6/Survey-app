@@ -8,8 +8,18 @@ import { SESSION_COOKIE, verifySessionToken } from "./lib/jwt";
 function homeFor(role: string): string {
   if (role === "director") return "/director";
   if (role === "accountant") return "/finance";
+  if (role === "programme_manager") return "/pm";
+  if (role === "mis") return "/mis";
   return "/cm";
 }
+
+const AREAS: { prefix: string; role: string }[] = [
+  { prefix: "/director", role: "director" },
+  { prefix: "/cm", role: "cm" },
+  { prefix: "/finance", role: "accountant" },
+  { prefix: "/pm", role: "programme_manager" },
+  { prefix: "/mis", role: "mis" },
+];
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -26,33 +36,30 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL(homeFor(session.role), req.url));
   }
 
-  const isDirectorArea = pathname.startsWith("/director");
-  const isCmArea = pathname.startsWith("/cm");
-  const isFinanceArea = pathname.startsWith("/finance");
-  const isProtected = isDirectorArea || isCmArea || isFinanceArea;
+  const area = AREAS.find((a) => pathname.startsWith(a.prefix));
 
-  if (isProtected && !session) {
+  if (area && !session) {
     const url = new URL("/login", req.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
   // Role isolation: keep each role inside its own area.
-  if (session) {
-    if (isDirectorArea && session.role !== "director") {
-      return NextResponse.redirect(new URL(homeFor(session.role), req.url));
-    }
-    if (isCmArea && session.role !== "cm") {
-      return NextResponse.redirect(new URL(homeFor(session.role), req.url));
-    }
-    if (isFinanceArea && session.role !== "accountant") {
-      return NextResponse.redirect(new URL(homeFor(session.role), req.url));
-    }
+  if (session && area && session.role !== area.role) {
+    return NextResponse.redirect(new URL(homeFor(session.role), req.url));
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/login", "/director/:path*", "/cm/:path*", "/finance/:path*"],
+  matcher: [
+    "/",
+    "/login",
+    "/director/:path*",
+    "/cm/:path*",
+    "/finance/:path*",
+    "/pm/:path*",
+    "/mis/:path*",
+  ],
 };

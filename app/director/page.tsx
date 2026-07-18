@@ -43,6 +43,7 @@ const MODULES: [string, string, string][] = [
   ["/director/sync", "Frappe sync", "Monitor sync status and re-sync failed records"],
   ["/director/finance", "Finance", "Expenses, reimbursements, statement & Excel export"],
   ["/director/reports", "Reports", "Daily / weekly / monthly CM activity"],
+  ["/director/weekly", "Weekly reports", "Review & approve Programme Manager weekly reports"],
 ];
 
 export default async function DirectorHome() {

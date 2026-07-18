@@ -60,14 +60,12 @@ export async function POST(req: Request) {
       period?: string;
       periodDate?: string;
       metrics?: Record<string, unknown>;
+      data?: Record<string, unknown>;
       notes?: string;
     }>(req);
 
     if (!body.period || !PERIODS.includes(body.period as ReportPeriod)) {
       return json({ error: "period must be daily, weekly or monthly" }, 400);
-    }
-    if (!user.projectId) {
-      return json({ error: "You are not assigned to a project yet" }, 400);
     }
 
     const metrics: Record<string, number> = {};
@@ -85,6 +83,8 @@ export async function POST(req: Request) {
       period: body.period as ReportPeriod,
       periodDate: body.periodDate ? new Date(body.periodDate) : now,
       metrics,
+      data:
+        body.data && typeof body.data === "object" ? body.data : undefined,
       notes: body.notes?.trim() || undefined,
       createdAt: now,
       updatedAt: now,

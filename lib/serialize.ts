@@ -7,6 +7,7 @@ import type {
   ExpenseDoc,
   LedgerDoc,
   PaymentDoc,
+  WeeklyReportDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
 
@@ -127,18 +128,44 @@ export function publicLedgerEntry(l: LedgerDoc) {
   };
 }
 
+export function publicWeeklyReport(
+  w: WeeklyReportDoc,
+  extra?: { pmName?: string }
+) {
+  return {
+    id: String(w._id),
+    reportId: w.reportId,
+    programmeManagerId: String(w.programmeManagerId),
+    pmName: extra?.pmName ?? w.pmName ?? null,
+    weekStart: w.weekStart,
+    weekEnd: w.weekEnd,
+    status: w.status,
+    dashboard: w.dashboard ?? null,
+    settlements: w.settlements ?? [],
+    data: w.data ?? {},
+    certification: w.certification ?? {},
+    directorComments: w.directorComments ?? null,
+    directorActionPoints: w.directorActionPoints ?? [],
+    reviewedAt: w.reviewedAt ?? null,
+    submittedAt: w.submittedAt ?? null,
+    createdAt: w.createdAt,
+    updatedAt: w.updatedAt,
+  };
+}
+
 export function publicReport(
   r: ReportDoc,
   extra?: { mobiliserName?: string }
 ) {
   return {
     id: String(r._id),
-    projectId: String(r.projectId),
+    projectId: r.projectId ? String(r.projectId) : null,
     mobiliserId: String(r.mobiliserId),
     mobiliserName: extra?.mobiliserName ?? null,
     period: r.period,
     periodDate: r.periodDate,
     metrics: r.metrics ?? {},
+    data: r.data ?? {},
     notes: r.notes ?? null,
     createdAt: r.createdAt,
   };

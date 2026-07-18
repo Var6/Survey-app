@@ -141,9 +141,13 @@ export function validateField(
       return `ज़्यादा से ज़्यादा ${v.maxSelect} चुनें`;
   }
 
+  // Only validate membership when the select actually has options.
+  // (An options-less select — e.g. the director's free-text surveyor name —
+  //  accepts any typed value.)
   if (
     field.type === "select" &&
     field.options &&
+    field.options.length > 0 &&
     typeof value === "string" &&
     !field.options.some((o) => o.code === value)
   ) {

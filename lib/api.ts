@@ -1,5 +1,5 @@
 import { currentUser } from "./auth";
-import type { UserDoc } from "./models";
+import type { UserDoc, Role } from "./models";
 
 /** Error that carries an HTTP status so route handlers can throw + convert. */
 export class HttpError extends Error {
@@ -35,6 +35,13 @@ export async function requireFinance(): Promise<UserDoc> {
   if (user.role !== "director" && user.role !== "accountant") {
     throw new HttpError(403, "Forbidden");
   }
+  return user;
+}
+
+/** Require the user to hold one of the given roles. */
+export async function requireRoles(...roles: Role[]): Promise<UserDoc> {
+  const user = await requireUser();
+  if (!roles.includes(user.role)) throw new HttpError(403, "Forbidden");
   return user;
 }
 

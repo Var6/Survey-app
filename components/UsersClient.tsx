@@ -7,7 +7,7 @@ import { SETTLEMENTS, MOBILISER_CODES } from "@/lib/questionnaire/settlements";
 
 interface User {
   id: string;
-  role: "director" | "cm" | "accountant";
+  role: "director" | "cm" | "accountant" | "programme_manager" | "mis";
   name: string;
   email: string;
   phone: string | null;
@@ -23,11 +23,15 @@ interface Project {
 
 const ROLE_LABEL: Record<string, string> = {
   director: "Director",
+  programme_manager: "Programme Manager",
+  mis: "Supervisor / MIS",
   accountant: "Accountant",
   cm: "Community Mobiliser",
 };
 const ROLE_OPTIONS = [
   { value: "cm", label: "Community Mobiliser" },
+  { value: "programme_manager", label: "Programme Manager" },
+  { value: "mis", label: "Supervisor / MIS Assistant" },
   { value: "accountant", label: "Accountant (Finance)" },
   { value: "director", label: "Director" },
 ];

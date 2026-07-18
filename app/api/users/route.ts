@@ -10,7 +10,13 @@ import { usersCol, ensureIndexes, type UserDoc, type Role } from "@/lib/models";
 import { hashPassword } from "@/lib/auth";
 import { publicUser } from "@/lib/serialize";
 
-const ROLES: Role[] = ["director", "accountant", "cm"];
+const ROLES: Role[] = [
+  "director",
+  "accountant",
+  "cm",
+  "programme_manager",
+  "mis",
+];
 
 export async function GET(req: Request) {
   try {

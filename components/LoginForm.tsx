@@ -27,7 +27,15 @@ export default function LoginForm({ next }: { next?: string }) {
       }
       const role = data.user.role as string;
       const home =
-        role === "director" ? "/director" : role === "accountant" ? "/finance" : "/cm";
+        role === "director"
+          ? "/director"
+          : role === "accountant"
+          ? "/finance"
+          : role === "programme_manager"
+          ? "/pm"
+          : role === "mis"
+          ? "/mis"
+          : "/cm";
       const dest = next && next.startsWith("/") && next !== "/" ? next : home;
       router.replace(dest);
       router.refresh();

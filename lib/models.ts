@@ -13,13 +13,19 @@ export const COLLECTIONS = {
   payments: "payments",
   ledger: "fund_ledger",
   reports: "reports",
+  weeklyReports: "weekly_reports",
   counters: "counters",
 } as const;
 
 /* ─────────────────────────────────────────────────────────────
  * Shared enums / literal unions
  * ───────────────────────────────────────────────────────────── */
-export type Role = "director" | "cm" | "accountant";
+export type Role =
+  | "director"
+  | "cm"
+  | "accountant"
+  | "programme_manager"
+  | "mis";
 export type SyncStatus = "pending" | "synced" | "failed";
 export type SurveyStatus = "complete" | "partial" | "refused_midway";
 export type RequisitionStatus = "pending" | "approved" | "rejected" | "paid";
@@ -179,13 +185,54 @@ export interface LedgerDoc {
 
 export interface ReportDoc {
   _id?: ObjectId;
-  projectId: ObjectId;
+  projectId?: ObjectId;
   mobiliserId: ObjectId;
   period: ReportPeriod;
   /** The day/week/month this report covers (start of period). */
   periodDate: Date;
-  metrics: Record<string, number>; // householdsVisited, meetings, etc.
+  metrics: Record<string, number>; // legacy simple metrics
+  /** Structured, schema-driven answers (dynamic daily report). */
+  data?: Record<string, unknown>;
   notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type WeeklyStatus = "draft" | "submitted" | "returned" | "approved";
+
+export interface SettlementStatus {
+  code: string;
+  status: "green" | "amber" | "red";
+  reason?: string;
+  corrective?: string;
+}
+export interface WeeklyActionPoint {
+  action: string;
+  owner?: string;
+  due?: string;
+}
+
+/** Programme Manager weekly report (PMW module). */
+export interface WeeklyReportDoc {
+  _id?: ObjectId;
+  reportId: string; // PMW-YYYY-WW
+  programmeManagerId: ObjectId;
+  pmName?: string;
+  weekStart: Date;
+  weekEnd: Date;
+  status: WeeklyStatus;
+  /** Auto-populated dashboard snapshot at last refresh. */
+  dashboard?: Record<string, unknown>;
+  /** Settlement traffic-light control table. */
+  settlements?: SettlementStatus[];
+  /** Manager accountability answers keyed by PMW field. */
+  data?: Record<string, unknown>;
+  certification?: Record<string, boolean | string>;
+  directorComments?: string;
+  directorActionPoints?: WeeklyActionPoint[];
+  reviewedBy?: ObjectId;
+  reviewedAt?: Date;
+  submittedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -206,6 +253,8 @@ export const expensesCol = () => col<ExpenseDoc>(COLLECTIONS.expenses);
 export const paymentsCol = () => col<PaymentDoc>(COLLECTIONS.payments);
 export const ledgerCol = () => col<LedgerDoc>(COLLECTIONS.ledger);
 export const reportsCol = () => col<ReportDoc>(COLLECTIONS.reports);
+export const weeklyReportsCol = () =>
+  col<WeeklyReportDoc>(COLLECTIONS.weeklyReports);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
 
 async function col<T extends import("mongodb").Document>(
@@ -268,6 +317,13 @@ export async function ensureIndexes(): Promise<void> {
     db
       .collection(COLLECTIONS.reports)
       .createIndex({ mobiliserId: 1, period: 1, periodDate: -1 }),
+    db
+      .collection(COLLECTIONS.weeklyReports)
+      .createIndex({ reportId: 1 }, { unique: true }),
+    db
+      .collection(COLLECTIONS.weeklyReports)
+      .createIndex({ programmeManagerId: 1, weekStart: -1 }),
+    db.collection(COLLECTIONS.weeklyReports).createIndex({ status: 1 }),
   ]);
 
   indexesEnsured = true;
