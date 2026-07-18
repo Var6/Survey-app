@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector, readJson } from "@/lib/api";
+import { json, handleError, requireFinance, readJson } from "@/lib/api";
 import { projectsCol, ledgerCol } from "@/lib/models";
 import { publicProject } from "@/lib/serialize";
 
@@ -13,7 +13,7 @@ function oid(id: string): ObjectId | null {
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    await requireDirector();
+    await requireFinance();
     const { id } = await ctx.params;
     const _id = oid(id);
     if (!_id) return json({ error: "Invalid id" }, 400);
@@ -29,7 +29,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const director = await requireDirector();
+    const director = await requireFinance();
     const { id } = await ctx.params;
     const _id = oid(id);
     if (!_id) return json({ error: "Invalid id" }, 400);
@@ -40,6 +40,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       description?: string;
       active?: boolean;
       addFunds?: number;
+      reduceFunds?: number;
+      fundsNote?: string;
     }>(req);
 
     const projects = await projectsCol();
@@ -53,23 +55,46 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (typeof body.description === "string") set.description = body.description.trim();
     if (typeof body.active === "boolean") set.active = body.active;
 
-    const addFunds = Number(body.addFunds) || 0;
-    let newTotal = project.totalFunds || 0;
-    if (addFunds > 0) {
-      newTotal += addFunds;
-      set.totalFunds = newTotal;
+    const spent = project.spentFunds || 0;
+    const addFunds = Math.max(0, Number(body.addFunds) || 0);
+    const reduceFunds = Math.max(0, Number(body.reduceFunds) || 0);
+
+    if (reduceFunds > 0) {
+      const balance = (project.totalFunds || 0) - spent;
+      if (reduceFunds > balance) {
+        return json(
+          { error: `Cannot reduce more than the available balance (${balance})` },
+          400
+        );
+      }
     }
+
+    let newTotal = project.totalFunds || 0;
+    if (addFunds > 0) newTotal += addFunds;
+    if (reduceFunds > 0) newTotal -= reduceFunds;
+    if (addFunds > 0 || reduceFunds > 0) set.totalFunds = newTotal;
 
     await projects.updateOne({ _id }, { $set: set });
 
+    const ledger = await ledgerCol();
     if (addFunds > 0) {
-      const ledger = await ledgerCol();
       await ledger.insertOne({
         projectId: _id,
         type: "allocation",
         amount: addFunds,
-        balanceAfter: newTotal - (project.spentFunds || 0),
-        note: "Added funds",
+        balanceAfter: (project.totalFunds || 0) + addFunds - spent,
+        note: body.fundsNote?.trim() || "Added funds",
+        createdBy: director._id,
+        createdAt: now,
+      });
+    }
+    if (reduceFunds > 0) {
+      await ledger.insertOne({
+        projectId: _id,
+        type: "adjustment",
+        amount: reduceFunds,
+        balanceAfter: newTotal - spent,
+        note: body.fundsNote?.trim() || "Reduced funds",
         createdBy: director._id,
         createdAt: now,
       });

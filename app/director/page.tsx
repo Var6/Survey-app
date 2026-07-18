@@ -38,7 +38,7 @@ function Stat({ label, value }: { label: string; value: number | string }) {
 
 const MODULES: [string, string, string][] = [
   ["/director/projects", "Projects & funds", "Create funding projects and track balances"],
-  ["/director/mobilisers", "Community Mobilisers", "Create CM logins, assign settlements"],
+  ["/director/users", "Users", "Manage directors, accountants and mobilisers"],
   ["/director/surveys", "Surveys", "View all household surveys, filter, export to Excel"],
   ["/director/sync", "Frappe sync", "Monitor sync status and re-sync failed records"],
   ["/director/finance", "Finance", "Expenses, reimbursements, statement & Excel export"],

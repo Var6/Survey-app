@@ -1,4 +1,4 @@
-import { json, handleError, requireDirector, readJson } from "@/lib/api";
+import { json, handleError, requireFinance, readJson } from "@/lib/api";
 import {
   projectsCol,
   ledgerCol,
@@ -9,7 +9,7 @@ import { publicProject } from "@/lib/serialize";
 
 export async function GET() {
   try {
-    await requireDirector();
+    await requireFinance();
     const projects = await projectsCol();
     const list = await projects.find({}).sort({ createdAt: -1 }).toArray();
     return json({ projects: list.map(publicProject) });
@@ -20,7 +20,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const director = await requireDirector();
+    const director = await requireFinance();
     await ensureIndexes();
     const body = await readJson<{
       name?: string;

@@ -1,21 +1,32 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector, readJson } from "@/lib/api";
-import { usersCol, ensureIndexes, type UserDoc } from "@/lib/models";
+import {
+  json,
+  handleError,
+  requireDirector,
+  requireFinance,
+  readJson,
+} from "@/lib/api";
+import { usersCol, ensureIndexes, type UserDoc, type Role } from "@/lib/models";
 import { hashPassword } from "@/lib/auth";
 import { publicUser } from "@/lib/serialize";
 
+const ROLES: Role[] = ["director", "accountant", "cm"];
+
 export async function GET(req: Request) {
   try {
-    await requireDirector();
+    // Finance users (director/accountant) can list users (e.g. for payroll).
+    await requireFinance();
     const url = new URL(req.url);
+    const role = url.searchParams.get("role");
     const projectId = url.searchParams.get("projectId");
 
-    const filter: Record<string, unknown> = { role: "cm" };
+    const filter: Record<string, unknown> = {};
+    if (role && ROLES.includes(role as Role)) filter.role = role;
     if (projectId) {
       try {
         filter.projectId = new ObjectId(projectId);
       } catch {
-        /* ignore bad id */
+        /* ignore */
       }
     }
 
@@ -29,9 +40,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    // Only a director can create/manage user accounts.
     const director = await requireDirector();
     await ensureIndexes();
     const body = await readJson<{
+      role?: Role;
       name?: string;
       email?: string;
       password?: string;
@@ -41,6 +54,7 @@ export async function POST(req: Request) {
       communities?: string[];
     }>(req);
 
+    const role: Role = ROLES.includes(body.role as Role) ? (body.role as Role) : "cm";
     const name = body.name?.trim();
     const email = body.email?.toLowerCase().trim();
     const password = body.password;
@@ -58,7 +72,7 @@ export async function POST(req: Request) {
     }
 
     let projectId: ObjectId | undefined;
-    if (body.projectId) {
+    if (role === "cm" && body.projectId) {
       try {
         projectId = new ObjectId(body.projectId);
       } catch {
@@ -68,14 +82,15 @@ export async function POST(req: Request) {
 
     const now = new Date();
     const doc: UserDoc = {
-      role: "cm",
+      role,
       name,
       email,
       passwordHash: await hashPassword(password),
       phone: body.phone?.trim() || undefined,
-      mobiliserCode: body.mobiliserCode?.trim() || undefined,
+      // CM-only fields
+      mobiliserCode: role === "cm" ? body.mobiliserCode?.trim() || undefined : undefined,
       projectId,
-      communities: Array.isArray(body.communities) ? body.communities : [],
+      communities: role === "cm" && Array.isArray(body.communities) ? body.communities : [],
       active: true,
       createdBy: director._id,
       createdAt: now,

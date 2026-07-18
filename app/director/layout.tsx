@@ -6,7 +6,7 @@ import RoleNav from "@/components/RoleNav";
 const NAV = [
   { href: "/director", label: "Overview" },
   { href: "/director/projects", label: "Projects" },
-  { href: "/director/mobilisers", label: "Mobilisers" },
+  { href: "/director/users", label: "Users" },
   { href: "/director/surveys", label: "Surveys" },
   { href: "/director/sync", label: "Sync" },
   { href: "/director/finance", label: "Finance" },

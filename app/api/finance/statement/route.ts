@@ -1,11 +1,11 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector } from "@/lib/api";
+import { json, handleError, requireFinance } from "@/lib/api";
 import { ledgerCol, projectsCol } from "@/lib/models";
 import { publicLedgerEntry, publicProject } from "@/lib/serialize";
 
 export async function GET(req: Request) {
   try {
-    await requireDirector();
+    await requireFinance();
     const params = new URL(req.url).searchParams;
 
     const filter: Record<string, unknown> = {};

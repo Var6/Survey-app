@@ -30,6 +30,8 @@ export default function ProjectsClient() {
 
   const [fundsFor, setFundsFor] = useState<string | null>(null);
   const [fundsAmount, setFundsAmount] = useState("");
+  const [fundsMode, setFundsMode] = useState<"add" | "reduce">("add");
+  const [fundsNote, setFundsNote] = useState("");
 
   async function load() {
     try {
@@ -72,16 +74,29 @@ export default function ProjectsClient() {
     }
   }
 
-  async function addFunds(id: string) {
+  function openFunds(id: string, mode: "add" | "reduce") {
+    setFundsFor(id);
+    setFundsMode(mode);
+    setFundsAmount("");
+    setFundsNote("");
+    setErr(null);
+  }
+
+  async function applyFunds(id: string) {
     const amount = Number(fundsAmount);
-    if (!amount) return;
+    if (!amount || amount <= 0) return;
+    const payload =
+      fundsMode === "add"
+        ? { addFunds: amount, fundsNote }
+        : { reduceFunds: amount, fundsNote };
     try {
       await apiFetch(`/api/projects/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ addFunds: amount }),
+        body: JSON.stringify(payload),
       });
       setFundsFor(null);
       setFundsAmount("");
+      setFundsNote("");
       await load();
     } catch (e) {
       setErr((e as Error).message);
@@ -172,32 +187,42 @@ export default function ProjectsClient() {
                 </div>
               </div>
               {fundsFor === p.id ? (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs font-medium text-zinc-500">
+                    {fundsMode === "add" ? "Add funds to" : "Reduce funds from"} this project
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      className={inputClass}
+                      type="number"
+                      min="1"
+                      value={fundsAmount}
+                      onChange={(e) => setFundsAmount(e.target.value)}
+                      placeholder="Amount"
+                    />
+                    <button className={btnPrimary} onClick={() => applyFunds(p.id)}>
+                      {fundsMode === "add" ? "Add" : "Reduce"}
+                    </button>
+                    <button className={btnGhost} onClick={() => setFundsFor(null)}>
+                      ✕
+                    </button>
+                  </div>
                   <input
                     className={inputClass}
-                    type="number"
-                    min="1"
-                    value={fundsAmount}
-                    onChange={(e) => setFundsAmount(e.target.value)}
-                    placeholder="Amount to add"
+                    value={fundsNote}
+                    onChange={(e) => setFundsNote(e.target.value)}
+                    placeholder="Note (optional) — e.g. tranche 2, correction"
                   />
-                  <button className={btnPrimary} onClick={() => addFunds(p.id)}>
-                    Add
-                  </button>
-                  <button className={btnGhost} onClick={() => setFundsFor(null)}>
-                    ✕
-                  </button>
                 </div>
               ) : (
-                <button
-                  className={`${btnGhost} mt-3`}
-                  onClick={() => {
-                    setFundsFor(p.id);
-                    setFundsAmount("");
-                  }}
-                >
-                  + Add funds
-                </button>
+                <div className="mt-3 flex gap-2">
+                  <button className={btnGhost} onClick={() => openFunds(p.id, "add")}>
+                    + Add funds
+                  </button>
+                  <button className={btnGhost} onClick={() => openFunds(p.id, "reduce")}>
+                    − Reduce funds
+                  </button>
+                </div>
               )}
             </Card>
           ))}

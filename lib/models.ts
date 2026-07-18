@@ -19,7 +19,7 @@ export const COLLECTIONS = {
 /* ─────────────────────────────────────────────────────────────
  * Shared enums / literal unions
  * ───────────────────────────────────────────────────────────── */
-export type Role = "director" | "cm";
+export type Role = "director" | "cm" | "accountant";
 export type SyncStatus = "pending" | "synced" | "failed";
 export type SurveyStatus = "complete" | "partial" | "refused_midway";
 export type RequisitionStatus = "pending" | "approved" | "rejected" | "paid";

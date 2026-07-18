@@ -29,6 +29,15 @@ export async function requireDirector(): Promise<UserDoc> {
   return user;
 }
 
+/** Require a finance-capable user (director or accountant). */
+export async function requireFinance(): Promise<UserDoc> {
+  const user = await requireUser();
+  if (user.role !== "director" && user.role !== "accountant") {
+    throw new HttpError(403, "Forbidden");
+  }
+  return user;
+}
+
 /** Parse and return a JSON body, or throw 400 on malformed input. */
 export async function readJson<T = Record<string, unknown>>(
   req: Request

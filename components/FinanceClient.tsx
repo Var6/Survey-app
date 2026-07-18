@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, formatMoney, formatDate } from "@/lib/client";
 import { Card, Empty, Badge, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import RequisitionsClient from "@/components/RequisitionsClient";
+import ProjectsClient from "@/components/ProjectsClient";
 
 interface Project {
   id: string;
@@ -46,10 +47,11 @@ interface Payment {
   createdAt: string;
 }
 
-const TABS = ["overview", "expenses", "payroll", "reimbursements", "statement"] as const;
+const TABS = ["overview", "funds", "expenses", "payroll", "reimbursements", "statement"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABEL: Record<Tab, string> = {
   overview: "Overview",
+  funds: "Funds",
   expenses: "Expenses",
   payroll: "Payroll",
   reimbursements: "Reimbursements",
@@ -89,6 +91,7 @@ export default function FinanceClient() {
       {err && <p className="text-sm text-red-600">{err}</p>}
 
       {tab === "overview" && <Overview projects={projects} />}
+      {tab === "funds" && <ProjectsClient />}
       {tab === "expenses" && <Expenses projects={projects} />}
       {tab === "payroll" && <Payroll />}
       {tab === "reimbursements" && <RequisitionsClient scope="director" />}

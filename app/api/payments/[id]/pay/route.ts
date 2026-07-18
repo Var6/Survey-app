@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector } from "@/lib/api";
+import { json, handleError, requireFinance } from "@/lib/api";
 import { paymentsCol } from "@/lib/models";
 import { publicPayment } from "@/lib/serialize";
 import { settlePayment } from "@/lib/pay";
@@ -9,7 +9,7 @@ export async function POST(
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const director = await requireDirector();
+    const director = await requireFinance();
     const { id } = await ctx.params;
     let _id: ObjectId;
     try {

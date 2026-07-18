@@ -14,8 +14,9 @@ import {
   type Field,
   type Option,
   type RepeatGroup,
+  type Section,
 } from "@/lib/questionnaire";
-import { inputClass, labelClass, btnPrimary } from "@/components/ui";
+import { inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import { MOBILISER_CODES } from "@/lib/questionnaire/settlements";
 import { enqueueSurvey } from "@/lib/outbox";
 
@@ -26,6 +27,22 @@ const REPEAT_CAP = 40;
 
 function optLabel(o: Option): string {
   return o.hi && o.hi.trim() ? o.hi : o.en;
+}
+
+/** Strictly clean an integer input: digits only, clamped to max. */
+function cleanInt(field: Field, raw: string): number | "" {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits === "") return "";
+  let n = parseInt(digits, 10);
+  const max = field.validation?.max;
+  if (max !== undefined && n > max) n = max;
+  return n;
+}
+
+function sectionHasVisibleItems(s: Section, values: Values): boolean {
+  return s.items.some((it) =>
+    isRepeat(it) ? evalCondition(it.showWhen, values) : isFieldVisible(it, values)
+  );
 }
 
 export default function SurveyForm({
@@ -60,6 +77,7 @@ export default function SurveyForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [topError, setTopError] = useState<string | null>(null);
+  const [stepIndex, setStepIndex] = useState(0);
 
   function setValue(name: string, value: unknown) {
     setValues((v) => ({ ...v, [name]: value }));
@@ -70,11 +88,6 @@ export default function SurveyForm({
       arr[index] = { ...(arr[index] || {}), [name]: value };
       return { ...prev, [group]: arr };
     });
-  }
-
-  function toggleMulti(name: string, code: string, current: unknown) {
-    const arr = Array.isArray(current) ? (current as string[]) : [];
-    setValue(name, arr.includes(code) ? arr.filter((x) => x !== code) : [...arr, code]);
   }
 
   async function captureGps(name: string) {
@@ -89,7 +102,7 @@ export default function SurveyForm({
           lng: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
         }),
-      () => setTopError("Could not get location — you can continue without it.")
+      () => setTopError("लोकेशन नहीं मिली — आप बिना इसके आगे बढ़ सकते हैं।")
     );
   }
 
@@ -101,8 +114,20 @@ export default function SurveyForm({
     onChange: (v: unknown) => void,
     keyPrefix: string
   ) {
-    const required = isFieldRequired(field, ctx);
+    const required = isFieldRequired(field, ctx) && !(field.name === "mobiliser_code" && role === "director");
     const err = errors[keyPrefix + field.name];
+
+    if (field.type === "note") {
+      return (
+        <div
+          key={keyPrefix + field.name}
+          className="rounded-lg bg-teal-50 px-3 py-2 text-sm leading-relaxed text-teal-900 dark:bg-teal-950/30 dark:text-teal-200"
+        >
+          {labelText(field.label)}
+        </div>
+      );
+    }
+
     const label = (
       <label className={labelClass}>
         {labelText(field.label)}
@@ -110,88 +135,129 @@ export default function SurveyForm({
       </label>
     );
 
-    // Special: settlement dropdown uses provided options.
     let options = field.options;
     if (field.name === "settlement_name") {
-      options = settlementOptions.map((s) => ({ code: s.code, en: s.label }));
+      options = settlementOptions.map((s) => ({ code: s.code, en: s.label, hi: s.label }));
     }
 
     let control: React.ReactNode;
 
-    if (field.type === "note") {
-      return (
-        <div key={keyPrefix + field.name} className="rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-900 dark:bg-teal-950/30 dark:text-teal-200">
-          {labelText(field.label)}
-          {field.note && <span className="block text-xs opacity-80">{field.note}</span>}
-        </div>
-      );
-    }
-
     if (field.name === "mobiliser_name") {
+      // Director types any name; CM's name is fixed.
       control = (
         <input
           className={inputClass}
           value={(value as string) || ""}
           readOnly={role === "cm"}
+          placeholder={role === "director" ? "कोई भी नाम लिखें" : undefined}
           onChange={(e) => onChange(e.target.value)}
         />
       );
     } else if (field.name === "mobiliser_code" && role === "cm" && mobiliserCode) {
       control = <input className={inputClass} value={String(value || "")} readOnly />;
-    } else if (field.type === "select" || (field.name === "mobiliser_code")) {
-      const opts = field.name === "mobiliser_code" && (!options || options.length === 0)
-        ? MOBILISER_CODES.map((c) => ({ code: c, en: c }))
-        : options || [];
+    } else if (field.type === "select" || field.name === "mobiliser_code") {
+      const opts =
+        field.name === "mobiliser_code" && (!options || options.length === 0)
+          ? MOBILISER_CODES.map((c) => ({ code: c, en: c, hi: c }))
+          : options || [];
       control = (
-        <select className={inputClass} value={(value as string) || ""} onChange={(e) => onChange(e.target.value)}>
-          <option value="">— select —</option>
-          {opts.map((o) => (
-            <option key={o.code} value={o.code}>{optLabel(o)}</option>
+        <select
+          className={inputClass}
+          value={(value as string) || ""}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">— चुनें —</option>
+          {opts.map((op) => (
+            <option key={op.code} value={op.code}>
+              {optLabel(op)}
+            </option>
           ))}
         </select>
       );
     } else if (field.type === "multiselect") {
       const arr = Array.isArray(value) ? (value as string[]) : [];
       control = (
-        <div className="grid grid-cols-2 gap-1.5">
-          {(options || []).map((o) => (
-            <label key={o.code} className="flex items-center gap-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm dark:border-zinc-800">
-              <input type="checkbox" checked={arr.includes(o.code)} onChange={() => onChange(arr.includes(o.code) ? arr.filter((x) => x !== o.code) : [...arr, o.code])} />
-              <span className="text-zinc-700 dark:text-zinc-300">{optLabel(o)}</span>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          {(options || []).map((op) => (
+            <label
+              key={op.code}
+              className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
+            >
+              <input
+                type="checkbox"
+                checked={arr.includes(op.code)}
+                onChange={() =>
+                  onChange(
+                    arr.includes(op.code)
+                      ? arr.filter((x) => x !== op.code)
+                      : [...arr, op.code]
+                  )
+                }
+              />
+              <span className="text-zinc-700 dark:text-zinc-300">{optLabel(op)}</span>
             </label>
           ))}
         </div>
       );
     } else if (field.type === "textarea") {
-      control = <textarea className={inputClass} rows={2} value={(value as string) || ""} onChange={(e) => onChange(e.target.value)} />;
+      control = (
+        <textarea
+          className={inputClass}
+          rows={2}
+          value={(value as string) || ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
     } else if (field.type === "geopoint") {
       const g = value as { lat: number; lng: number } | null;
       control = (
-        <div className="flex items-center gap-2">
-          <button type="button" className={inputClass + " !w-auto"} onClick={() => captureGps(field.name)}>
-            📍 Capture location
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className={btnGhost}
+            onClick={() => captureGps(field.name)}
+          >
+            📍 लोकेशन लें
           </button>
-          {g && <span className="text-xs text-zinc-500">{g.lat.toFixed(5)}, {g.lng.toFixed(5)}</span>}
+          {g && (
+            <span className="text-xs text-zinc-500">
+              {g.lat.toFixed(5)}, {g.lng.toFixed(5)}
+            </span>
+          )}
         </div>
       );
+    } else if (field.type === "integer" || field.type === "decimal") {
+      // Strict numeric: only digits can be entered.
+      const strVal =
+        value === "" || value === undefined || value === null ? "" : String(value);
+      control = (
+        <input
+          className={inputClass}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={strVal}
+          onChange={(e) => onChange(cleanInt(field, e.target.value))}
+        />
+      );
+    } else if (field.type === "phone") {
+      control = (
+        <input
+          className={inputClass}
+          type="tel"
+          inputMode="tel"
+          value={(value as string) || ""}
+          onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, "").slice(0, 10))}
+        />
+      );
     } else {
-      const type =
-        field.type === "integer" || field.type === "decimal"
-          ? "number"
-          : field.type === "date"
-          ? "date"
-          : field.type === "time"
-          ? "time"
-          : field.type === "phone"
-          ? "tel"
-          : "text";
+      const type = field.type === "date" ? "date" : field.type === "time" ? "time" : "text";
       control = (
         <input
           className={inputClass}
           type={type}
-          inputMode={type === "number" ? "numeric" : type === "tel" ? "tel" : undefined}
           value={(value as string) ?? ""}
-          onChange={(e) => onChange(field.type === "integer" || field.type === "decimal" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value)}
+          onChange={(e) => onChange(e.target.value)}
         />
       );
     }
@@ -200,9 +266,6 @@ export default function SurveyForm({
       <div key={keyPrefix + field.name}>
         {label}
         {control}
-        {field.note && (
-          <p className="mt-0.5 text-xs text-zinc-400">{field.note}</p>
-        )}
         {err && <p className="mt-0.5 text-xs text-red-500">{err}</p>}
       </div>
     );
@@ -214,7 +277,7 @@ export default function SurveyForm({
     if (count <= 0) {
       return (
         <p key={group.name} className="text-sm text-zinc-400">
-          Set “{group.countFrom.replace(/_/g, " ")}” above to add entries.
+          ऊपर गिनती भरें ताकि यहाँ प्रविष्टियाँ जुड़ें।
         </p>
       );
     }
@@ -224,7 +287,10 @@ export default function SurveyForm({
           const row = (rows[group.name] || [])[i] || {};
           const ctx = { ...values, ...row };
           return (
-            <div key={i} className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+            <div
+              key={i}
+              className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950"
+            >
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
                 {labelText(group.label)} #{i + 1}
               </p>
@@ -242,9 +308,10 @@ export default function SurveyForm({
     );
   }
 
-  function validate(): boolean {
+  /* ── Validation ─────────────────────────────────────────── */
+  function computeErrors(sections: Section[]): Record<string, string> {
     const errs: Record<string, string> = {};
-    for (const section of QUESTIONNAIRE) {
+    for (const section of sections) {
       if (!evalCondition(section.showWhen, values)) continue;
       for (const item of section.items) {
         if (isRepeat(item)) {
@@ -260,27 +327,69 @@ export default function SurveyForm({
             }
           }
         } else if (item.type !== "note") {
+          if (item.name === "mobiliser_code" && role === "director") continue;
           const msg = validateField(item, values[item.name], values);
           if (msg) errs[item.name] = msg;
         }
       }
     }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+    return errs;
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setTopError(null);
-    if (role === "director" && !projectId) {
-      setTopError("Select a project for this survey.");
-      return;
-    }
-    if (!validate()) {
-      setTopError("Please fix the highlighted fields.");
+  /* ── Steps (visible sections, recomputed from answers) ──── */
+  const visibleSections = useMemo(
+    () =>
+      QUESTIONNAIRE.filter(
+        (s) => evalCondition(s.showWhen, values) && sectionHasVisibleItems(s, values)
+      ),
+    [values]
+  );
+  const clampedIndex = Math.min(stepIndex, visibleSections.length - 1);
+  const section = visibleSections[clampedIndex];
+  const isLast = clampedIndex >= visibleSections.length - 1;
+
+  function goNext() {
+    const e = computeErrors([section]);
+    setErrors(e);
+    if (Object.keys(e).length) {
+      setTopError("कृपया लाल निशान वाले सवाल पूरे करें।");
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
+    setTopError(null);
+    if (isLast) {
+      submit();
+    } else {
+      setStepIndex(clampedIndex + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function goBack() {
+    setTopError(null);
+    setStepIndex(Math.max(0, clampedIndex - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function submit() {
+    setTopError(null);
+    if (role === "director" && !projectId) {
+      setStepIndex(0);
+      setTopError("कृपया प्रोजेक्ट चुनें।");
+      return;
+    }
+    const e = computeErrors(visibleSections);
+    setErrors(e);
+    if (Object.keys(e).length) {
+      const idx = visibleSections.findIndex(
+        (s) => Object.keys(computeErrors([s])).length > 0
+      );
+      if (idx >= 0) setStepIndex(idx);
+      setTopError("कृपया लाल निशान वाले सवाल पूरे करें।");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
     const countOf = (n: string) => Math.min(Number(values[n]) || 0, REPEAT_CAP);
     const slice = (name: string, n: string) =>
       Array.from({ length: countOf(n) }, (_, i) => (rows[name] || [])[i] || {});
@@ -298,10 +407,10 @@ export default function SurveyForm({
       youth_13_24: slice("youth_13_24", "num_youth_13_24"),
       gps: (values.gps_location as object) || null,
     };
-    const label = (values.head_name as string) || (values.respondent_name as string) || "Household";
+    const label =
+      (values.head_name as string) || (values.respondent_name as string) || "Household";
     const home = role === "director" ? "/director/surveys" : "/cm/surveys";
 
-    // Mobiliser is offline → save on device; OfflineSync uploads it later.
     if (role === "cm" && typeof navigator !== "undefined" && !navigator.onLine) {
       enqueueSurvey(payload, label);
       router.replace(home);
@@ -311,80 +420,99 @@ export default function SurveyForm({
 
     setSubmitting(true);
     try {
-      await apiFetch("/api/surveys", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      await apiFetch("/api/surveys", { method: "POST", body: JSON.stringify(payload) });
       router.replace(home);
       router.refresh();
-    } catch (e) {
-      // A network failure (flaky connection) throws TypeError — queue it for CM.
-      if (role === "cm" && e instanceof TypeError) {
+    } catch (err) {
+      if (role === "cm" && err instanceof TypeError) {
         enqueueSurvey(payload, label);
         router.replace(home);
         router.refresh();
       } else {
-        setTopError((e as Error).message);
+        setTopError((err as Error).message);
       }
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (!section) return null;
+  const progress = Math.round(((clampedIndex + 1) / visibleSections.length) * 100);
+
   return (
-    <form onSubmit={submit} className="space-y-6 pb-24">
+    <div className="pb-24">
+      {/* Progress */}
+      <div className="mb-4">
+        <div className="mb-1 flex items-center justify-between text-xs text-zinc-500">
+          <span>
+            खंड {clampedIndex + 1} / {visibleSections.length}
+          </span>
+          <span className="rounded bg-teal-100 px-1.5 py-0.5 font-semibold text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
+            {section.id}
+          </span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+          <div className="h-full bg-teal-600 transition-all" style={{ width: `${progress}%` }} />
+        </div>
+        <h2 className="mt-2 text-base font-bold text-zinc-900 dark:text-zinc-50">
+          {labelText(section.title)}
+        </h2>
+      </div>
+
       {topError && (
-        <p className="sticky top-2 z-10 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
           {topError}
         </p>
       )}
 
-      {role === "director" && (
-        <div>
-          <label className={labelClass}>Project *</label>
-          <select className={inputClass} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            <option value="">— select project —</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
+      <div className="space-y-4">
+        {clampedIndex === 0 && role === "director" && (
+          <div>
+            <label className={labelClass}>
+              प्रोजेक्ट <span className="text-red-500">*</span>
+            </label>
+            <select
+              className={inputClass}
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+            >
+              <option value="">— प्रोजेक्ट चुनें —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-      {QUESTIONNAIRE.map((section) => {
-        if (!evalCondition(section.showWhen, values)) return null;
-        const items = section.items.filter((it) =>
-          isRepeat(it) ? true : isFieldVisible(it, values)
-        );
-        if (items.length === 0) return null;
-        return (
-          <section key={section.id} className="space-y-3">
-            <div className="flex items-center gap-2 border-b border-zinc-200 pb-1 dark:border-zinc-800">
-              <span className="flex h-6 w-6 items-center justify-center rounded bg-teal-100 text-xs font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
-                {section.id}
-              </span>
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-                {labelText(section.title)}
-              </h2>
-            </div>
-            {section.items.map((item) =>
-              isRepeat(item)
-                ? renderRepeat(item)
-                : isFieldVisible(item, values)
-                ? renderField(item, values, values[item.name], (v) => setValue(item.name, v), "")
-                : null
-            )}
-          </section>
-        );
-      })}
+        {section.items.map((item) =>
+          isRepeat(item)
+            ? renderRepeat(item)
+            : isFieldVisible(item, values)
+            ? renderField(item, values, values[item.name], (v) => setValue(item.name, v), "")
+            : null
+        )}
+      </div>
 
+      {/* Nav bar */}
       <div className="fixed inset-x-0 bottom-0 border-t border-zinc-200 bg-white/95 p-3 backdrop-blur dark:border-zinc-800 dark:bg-black/90">
-        <div className="mx-auto max-w-3xl">
-          <button type="submit" className={`${btnPrimary} w-full`} disabled={submitting}>
-            {submitting ? "Saving…" : "Save survey"}
+        <div className="mx-auto flex max-w-3xl gap-2">
+          {clampedIndex > 0 && (
+            <button type="button" onClick={goBack} className={`${btnGhost} flex-1`}>
+              ← पीछे
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={submitting}
+            className={`${btnPrimary} flex-[2]`}
+          >
+            {submitting ? "सेव हो रहा है…" : isLast ? "सर्वे सेव करें" : "आगे →"}
           </button>
         </div>
       </div>
-    </form>
+    </div>
   );
 }

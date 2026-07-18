@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { handleError, requireDirector } from "@/lib/api";
+import { handleError, requireFinance } from "@/lib/api";
 import { ledgerCol, expensesCol, projectsCol } from "@/lib/models";
 import { buildFinanceWorkbook } from "@/lib/export";
 
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   try {
-    await requireDirector();
+    await requireFinance();
     const params = new URL(req.url).searchParams;
 
     const filter: Record<string, unknown> = {};

@@ -26,8 +26,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }>(req);
 
     const users = await usersCol();
-    const user = await users.findOne({ _id, role: "cm" });
-    if (!user) return json({ error: "Mobiliser not found" }, 404);
+    const user = await users.findOne({ _id });
+    if (!user) return json({ error: "User not found" }, 404);
 
     const set: Record<string, unknown> = { updatedAt: new Date() };
     if (typeof body.name === "string" && body.name.trim()) set.name = body.name.trim();

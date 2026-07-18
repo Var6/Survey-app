@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector, readJson } from "@/lib/api";
+import { json, handleError, requireFinance, readJson } from "@/lib/api";
 import { requisitionsCol } from "@/lib/models";
 import { publicRequisition } from "@/lib/serialize";
 
@@ -8,7 +8,7 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> }
 ) {
   try {
-    const director = await requireDirector();
+    const director = await requireFinance();
     const { id } = await ctx.params;
     let _id: ObjectId;
     try {

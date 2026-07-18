@@ -117,28 +117,28 @@ export function validateField(
     value === "" ||
     (Array.isArray(value) && value.length === 0);
 
-  if (required && empty) return "This field is required";
+  if (required && empty) return "यह ज़रूरी है";
   if (empty) return null;
 
   const v = field.validation;
   if (field.type === "integer" || field.type === "decimal") {
     const n = Number(value);
-    if (!Number.isFinite(n)) return "Enter a valid number";
+    if (!Number.isFinite(n)) return "सही संख्या दर्ज करें";
     if (field.type === "integer" && !Number.isInteger(n))
-      return "Enter a whole number";
-    if (v?.min !== undefined && n < v.min) return `Minimum is ${v.min}`;
-    if (v?.max !== undefined && n > v.max) return `Maximum is ${v.max}`;
+      return "पूरी संख्या दर्ज करें";
+    if (v?.min !== undefined && n < v.min) return `कम से कम ${v.min}`;
+    if (v?.max !== undefined && n > v.max) return `ज़्यादा से ज़्यादा ${v.max}`;
   }
 
   if (field.type === "phone" && v?.digits) {
     const digits = String(value).replace(/\D/g, "");
     if (digits.length !== v.digits)
-      return `Enter a ${v.digits}-digit phone number`;
+      return `${v.digits} अंकों का फ़ोन नंबर दर्ज करें`;
   }
 
   if (field.type === "multiselect" && Array.isArray(value)) {
     if (v?.maxSelect && value.length > v.maxSelect)
-      return `Select at most ${v.maxSelect}`;
+      return `ज़्यादा से ज़्यादा ${v.maxSelect} चुनें`;
   }
 
   if (
@@ -147,7 +147,7 @@ export function validateField(
     typeof value === "string" &&
     !field.options.some((o) => o.code === value)
   ) {
-    return "Invalid selection";
+    return "गलत चयन";
   }
 
   return null;

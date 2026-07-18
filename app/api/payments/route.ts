@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireUser, requireDirector, readJson } from "@/lib/api";
+import { json, handleError, requireUser, requireFinance, readJson } from "@/lib/api";
 import {
   paymentsCol,
   usersCol,
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const director = await requireDirector();
+    const director = await requireFinance();
     await ensureIndexes();
     const body = await readJson<{
       mobiliserId?: string;

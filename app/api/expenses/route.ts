@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector, readJson } from "@/lib/api";
+import { json, handleError, requireFinance, readJson } from "@/lib/api";
 import {
   expensesCol,
   projectsCol,
@@ -11,7 +11,7 @@ import { publicExpense } from "@/lib/serialize";
 
 export async function GET(req: Request) {
   try {
-    await requireDirector();
+    await requireFinance();
     const params = new URL(req.url).searchParams;
     const filter: Record<string, unknown> = {};
     const pid = params.get("projectId");
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const director = await requireDirector();
+    const director = await requireFinance();
     await ensureIndexes();
     const body = await readJson<{
       projectId?: string;
