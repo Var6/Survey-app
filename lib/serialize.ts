@@ -8,8 +8,10 @@ import type {
   LedgerDoc,
   PaymentDoc,
   WeeklyReportDoc,
+  CaseDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
+import { moduleDef, stageLabel, subcategoryLabel } from "./cases/modules";
 
 /** Public-safe user shape (no password hash). */
 export function publicUser(u: UserDoc) {
@@ -171,6 +173,46 @@ export function publicReport(
     createdAt: r.createdAt,
   };
 }
+
+export function publicCase(c: CaseDoc, extra?: { mobiliserName?: string }) {
+  const settlement = SETTLEMENT_BY_CODE[c.settlementCode];
+  const def = moduleDef(c.module);
+  return {
+    id: String(c._id),
+    caseId: c.caseId,
+    module: c.module,
+    moduleTitle: def?.title ?? c.module,
+    subcategory: c.subcategory,
+    subcategoryLabel: subcategoryLabel(c.module, c.subcategory),
+    title: c.title,
+    subjectName: c.subjectName ?? null,
+    priority: c.priority,
+    stage: c.stage,
+    stageLabel: stageLabel(c.module, c.stage),
+    closed: c.closed,
+    householdId: c.householdId,
+    surveyId: String(c.surveyId),
+    settlementCode: c.settlementCode,
+    settlementLabel: settlement?.label ?? c.settlementCode,
+    mobiliserName: extra?.mobiliserName ?? null,
+    assignee: c.assignee ?? null,
+    dueDate: c.dueDate ?? null,
+    source: c.source,
+    meta: c.meta ?? {},
+    fields: c.fields ?? {},
+    history: (c.history ?? []).map((h) => ({
+      at: h.at,
+      stage: h.stage ?? null,
+      stageLabel: h.stage ? stageLabel(c.module, h.stage) : null,
+      note: h.note ?? null,
+      by: h.by ?? null,
+    })),
+    closedAt: c.closedAt ?? null,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
+export type PublicCase = ReturnType<typeof publicCase>;
 
 export function publicSurvey(
   s: SurveyDoc,

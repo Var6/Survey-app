@@ -1,5 +1,6 @@
 import { Collection, Db, ObjectId } from "mongodb";
 import { getDb } from "./db";
+import type { CaseModule, CasePriority } from "./cases/modules";
 
 /* ─────────────────────────────────────────────────────────────
  * Collection names
@@ -14,6 +15,7 @@ export const COLLECTIONS = {
   ledger: "fund_ledger",
   reports: "reports",
   weeklyReports: "weekly_reports",
+  cases: "cases",
   counters: "counters",
 } as const;
 
@@ -240,6 +242,46 @@ export interface WeeklyReportDoc {
   updatedAt: Date;
 }
 
+/* ─── Thematic case management ──────────────────────────────── */
+export interface CaseHistoryEntry {
+  at: Date;
+  stage?: string;
+  note?: string;
+  by?: string;
+}
+
+export interface CaseDoc {
+  _id?: ObjectId;
+  caseId: string; // e.g. HLT-0001
+  module: CaseModule;
+  subcategory: string;
+  title: string;
+  subjectName?: string;
+  priority: CasePriority;
+  /** Current workflow stage key (module-specific). */
+  stage: string;
+  closed: boolean;
+  /** Deterministic key that makes auto-derivation idempotent. */
+  dedupeKey: string;
+  surveyId: ObjectId;
+  householdId: string;
+  settlementCode: string;
+  mobiliserId?: ObjectId;
+  /** Staff member the case is assigned to (free text for now). */
+  assignee?: string;
+  /** Follow-up / due date, YYYY-MM-DD. */
+  dueDate?: string;
+  source: "survey_auto" | "manual";
+  /** Snapshot of the survey answers that triggered this case (context). */
+  meta?: Record<string, unknown>;
+  /** Staff-editable module fields (referral date, application no., etc.). */
+  fields: Record<string, unknown>;
+  history: CaseHistoryEntry[];
+  closedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CounterDoc {
   _id: string; // the counter key
   seq: number;
@@ -258,6 +300,7 @@ export const ledgerCol = () => col<LedgerDoc>(COLLECTIONS.ledger);
 export const reportsCol = () => col<ReportDoc>(COLLECTIONS.reports);
 export const weeklyReportsCol = () =>
   col<WeeklyReportDoc>(COLLECTIONS.weeklyReports);
+export const casesCol = () => col<CaseDoc>(COLLECTIONS.cases);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
 
 async function col<T extends import("mongodb").Document>(
@@ -327,6 +370,13 @@ export async function ensureIndexes(): Promise<void> {
       .collection(COLLECTIONS.weeklyReports)
       .createIndex({ programmeManagerId: 1, weekStart: -1 }),
     db.collection(COLLECTIONS.weeklyReports).createIndex({ status: 1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ dedupeKey: 1 }, { unique: true }),
+    db
+      .collection(COLLECTIONS.cases)
+      .createIndex({ module: 1, closed: 1, priority: 1, createdAt: -1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ settlementCode: 1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ householdId: 1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ closed: 1, dueDate: 1 }),
   ]);
 
   indexesEnsured = true;

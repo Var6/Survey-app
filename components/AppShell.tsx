@@ -13,6 +13,8 @@ export interface ShellNavItem {
   label: string;
   icon?: IconName;
   badge?: number;
+  /** When true, only highlight on an exact path match. */
+  exact?: boolean;
 }
 export interface ShellNavGroup {
   label?: string;
@@ -45,7 +47,9 @@ function NavLinks({
           )}
           <ul className="space-y-0.5">
             {group.items.map((it) => {
-              const active = isActive(path, it.href, homeHref);
+              const active = it.exact
+                ? path === it.href
+                : isActive(path, it.href, homeHref);
               const IconCmp = it.icon ? Icon[it.icon] : null;
               return (
                 <li key={it.href}>

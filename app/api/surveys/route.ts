@@ -13,6 +13,7 @@ import { publicSurvey } from "@/lib/serialize";
 import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
 import { FORM_VERSION } from "@/lib/questionnaire";
 import { frappeConfigured, syncSurveyById } from "@/lib/frappe";
+import { upsertCasesForSurvey } from "@/lib/cases/store";
 
 export async function GET(req: Request) {
   try {
@@ -139,6 +140,9 @@ export async function POST(req: Request) {
     if (frappeConfigured()) {
       void syncSurveyById(res.insertedId).catch(() => {});
     }
+
+    // Best-effort, non-blocking: auto-create thematic cases from this survey.
+    void upsertCasesForSurvey({ ...doc, _id: res.insertedId }).catch(() => {});
 
     return json(
       {

@@ -9,6 +9,19 @@ const NAV: ShellNavGroup[] = [
     ],
   },
   {
+    label: "Case modules",
+    items: [
+      { href: "/pm/cases", label: "All modules", icon: "grid", exact: true },
+      { href: "/pm/cases/health", label: "Health", icon: "health" },
+      { href: "/pm/cases/maternal", label: "Maternal & ICDS", icon: "maternal" },
+      { href: "/pm/cases/entitlements", label: "Entitlements", icon: "docs" },
+      { href: "/pm/cases/education", label: "Education", icon: "education" },
+      { href: "/pm/cases/early_childhood", label: "Early childhood", icon: "child" },
+      { href: "/pm/cases/youth", label: "Youth", icon: "youth" },
+      { href: "/pm/cases/women", label: "Women & girls", icon: "women" },
+    ],
+  },
+  {
     label: "Reporting",
     items: [
       { href: "/pm/weekly", label: "Weekly report", icon: "report" },
