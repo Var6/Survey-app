@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ProgrammeDashboard from "@/components/ProgrammeDashboard";
 import {
   surveysCol,
   usersCol,
@@ -59,6 +60,8 @@ export default async function DirectorHome() {
           Programme-wide view across all mobilisers and settlements.
         </p>
       </div>
+
+      <ProgrammeDashboard />
 
       {stats ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

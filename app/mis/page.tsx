@@ -1,5 +1,6 @@
 import { PageTitle } from "@/components/ui";
 import WeeklyDashboard from "@/components/WeeklyDashboard";
+import ProgrammeDashboard from "@/components/ProgrammeDashboard";
 import { weekOf, computeDashboard } from "@/lib/weekly/dashboard";
 
 export const metadata = { title: "Dashboard · MIS" };
@@ -22,6 +23,9 @@ export default async function MisHome() {
         title="MIS dashboard"
         subtitle={d ? `Current week · ${d.reportId}` : undefined}
       />
+      <div className="mb-6">
+        <ProgrammeDashboard />
+      </div>
       {d ? (
         <WeeklyDashboard dashboard={d.dashboard} />
       ) : (
