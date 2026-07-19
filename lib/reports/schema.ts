@@ -18,6 +18,68 @@ const num = (name: string, en: string, hi: string): Field => ({
   validation: { min: 0, max: 999 },
 });
 
+/**
+ * Revised daily update (PMD spec) — only four fields, used by both the
+ * Community Mobiliser (Hindi-first) and the Programme Manager (English).
+ */
+export const DAILY_UPDATE_SECTIONS: Section[] = [
+  {
+    id: "PMD",
+    title: { en: "Daily update", hi: "दैनिक अपडेट" },
+    items: [
+      {
+        qid: "PMD-01a",
+        name: "settlements_worked",
+        label: { en: "Where did you work today?", hi: "आज आपने कहाँ काम किया?" },
+        type: "multiselect",
+        options: settlementOpts,
+        required: true,
+      },
+      {
+        qid: "PMD-01b",
+        name: "work_done",
+        label: {
+          en: "What did you personally do?",
+          hi: "आपने व्यक्तिगत रूप से क्या किया?",
+        },
+        type: "textarea",
+        required: true,
+      },
+      {
+        qid: "PMD-02",
+        name: "completed_today",
+        label: {
+          en: "What was completed today? (up to 3 achievements, min. 50 words)",
+          hi: "आज क्या कार्य पूरे हुए? (अधिकतम 3 उपलब्धियाँ, कम से कम 50 शब्द)",
+        },
+        type: "textarea",
+        required: true,
+      },
+      {
+        qid: "PMD-03",
+        name: "issues_risks",
+        label: {
+          en: "What important issue, delay or risk needs attention?",
+          hi: "किस महत्वपूर्ण मुद्दे, विलंब या जोखिम पर ध्यान देने की आवश्यकता है?",
+        },
+        type: "textarea",
+        required: true,
+      },
+      {
+        qid: "PMD-04",
+        name: "tomorrow_priorities",
+        label: {
+          en: "What are your priority actions for tomorrow? (1–3 actions, min. 50 words)",
+          hi: "कल के लिए आपकी प्राथमिकता वाली कार्ययोजनाएँ क्या हैं? (1–3 कार्य, कम से कम 50 शब्द)",
+        },
+        type: "textarea",
+        required: true,
+      },
+    ],
+  },
+];
+
+/** Legacy 9-section daily schema — kept so older reports still render. */
 export const REPORT_SECTIONS: Section[] = [
   {
     id: "A",

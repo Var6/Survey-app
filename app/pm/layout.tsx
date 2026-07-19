@@ -24,6 +24,7 @@ const NAV: ShellNavGroup[] = [
   {
     label: "Reporting",
     items: [
+      { href: "/pm/daily", label: "Daily update", icon: "survey" },
       { href: "/pm/weekly", label: "Weekly report", icon: "report" },
       { href: "/pm/monthly", label: "Monthly report", icon: "calendar" },
     ],

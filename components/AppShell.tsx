@@ -29,10 +29,12 @@ function isActive(path: string, href: string, homeHref: string) {
 function NavLinks({
   nav,
   homeHref,
+  collapsed,
   onNavigate,
 }: {
   nav: ShellNavGroup[];
   homeHref: string;
+  collapsed?: boolean;
   onNavigate?: () => void;
 }) {
   const path = usePathname();
@@ -40,10 +42,13 @@ function NavLinks({
     <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
       {nav.map((group, gi) => (
         <div key={gi}>
-          {group.label && (
+          {group.label && !collapsed && (
             <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
               {group.label}
             </p>
+          )}
+          {group.label && collapsed && (
+            <div className="mx-2 mb-2 border-t border-zinc-200 dark:border-zinc-800" />
           )}
           <ul className="space-y-0.5">
             {group.items.map((it) => {
@@ -56,7 +61,10 @@ function NavLinks({
                   <Link
                     href={it.href}
                     onClick={onNavigate}
-                    className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition ${
+                    title={collapsed ? it.label : undefined}
+                    className={`flex items-center rounded-lg px-2.5 py-2 text-sm font-medium transition ${
+                      collapsed ? "justify-center" : "gap-2.5"
+                    } ${
                       active
                         ? "bg-teal-600 text-white shadow-sm"
                         : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-900"
@@ -67,8 +75,8 @@ function NavLinks({
                         className={active ? "text-white" : "text-zinc-400 dark:text-zinc-500"}
                       />
                     )}
-                    <span className="truncate">{it.label}</span>
-                    {it.badge !== undefined && it.badge > 0 && (
+                    {!collapsed && <span className="truncate">{it.label}</span>}
+                    {!collapsed && it.badge !== undefined && it.badge > 0 && (
                       <span
                         className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${
                           active
@@ -90,14 +98,20 @@ function NavLinks({
   );
 }
 
-function Brand() {
+function Brand({ collapsed }: { collapsed?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+    <div
+      className={`flex items-center border-b border-zinc-200 py-4 dark:border-zinc-800 ${
+        collapsed ? "justify-center px-2" : "gap-2.5 px-5"
+      }`}
+    >
       <Image src="/logo-mark.png" alt="Janman" width={32} height={32} className="rounded-lg" />
-      <div className="leading-tight">
-        <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Janman</p>
-        <p className="text-[11px] text-zinc-400">Field Programme</p>
-      </div>
+      {!collapsed && (
+        <div className="leading-tight">
+          <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Janman</p>
+          <p className="text-[11px] text-zinc-400">Field Programme</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -106,15 +120,17 @@ function UserFooter({
   name,
   roleLabel,
   avatarUrl,
+  collapsed,
 }: {
   name: string;
   roleLabel: string;
   avatarUrl?: string | null;
+  collapsed?: boolean;
 }) {
   return (
     <div className="border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
-      <div className="flex items-center gap-2.5 px-1">
-        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-800">
+      <div className={`flex items-center px-1 ${collapsed ? "justify-center" : "gap-2.5"}`}>
+        <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-zinc-800" title={collapsed ? `${name} · ${roleLabel}` : undefined}>
           {avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUrl} alt={name} className="h-full w-full object-cover" />
@@ -122,14 +138,16 @@ function UserFooter({
             <Image src="/logo-mark.png" alt={name} width={32} height={32} className="h-full w-full object-cover" />
           )}
         </div>
-        <div className="min-w-0 flex-1 leading-tight">
-          <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">{name}</p>
-          <p className="truncate text-[11px] text-zinc-400">{roleLabel}</p>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">{name}</p>
+            <p className="truncate text-[11px] text-zinc-400">{roleLabel}</p>
+          </div>
+        )}
       </div>
-      <div className="mt-2.5 flex items-center gap-2">
+      <div className={`mt-2.5 flex items-center gap-2 ${collapsed ? "flex-col" : ""}`}>
         <ThemeToggle />
-        <LogoutButton />
+        {!collapsed && <LogoutButton />}
       </div>
     </div>
   );
@@ -151,7 +169,28 @@ export default function AppShell({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const path = usePathname();
+
+  // Restore the persisted collapse preference.
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem("sidebar-collapsed") === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem("sidebar-collapsed", c ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return !c;
+    });
+  };
+
   // Close the mobile drawer on navigation.
   useEffect(() => {
     setOpen(false);
@@ -160,10 +199,22 @@ export default function AppShell({
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950 lg:flex">
-        <Brand />
-        <NavLinks nav={nav} homeHref={homeHref} />
-        <UserFooter name={name} roleLabel={roleLabel} avatarUrl={avatarUrl} />
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 dark:border-zinc-800 dark:bg-zinc-950 lg:flex ${
+          collapsed ? "w-16" : "w-64"
+        }`}
+      >
+        <Brand collapsed={collapsed} />
+        <NavLinks nav={nav} homeHref={homeHref} collapsed={collapsed} />
+        <UserFooter name={name} roleLabel={roleLabel} avatarUrl={avatarUrl} collapsed={collapsed} />
+        <button
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="absolute -right-3 top-16 flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-xs text-zinc-500 shadow-sm transition hover:text-teal-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
+        >
+          {collapsed ? "›" : "‹"}
+        </button>
       </aside>
 
       {/* Mobile top bar */}
@@ -204,7 +255,7 @@ export default function AppShell({
       )}
 
       {/* Main */}
-      <main className="lg:pl-64">
+      <main className={collapsed ? "lg:pl-16" : "lg:pl-64"}>
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>

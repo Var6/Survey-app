@@ -1,7 +1,7 @@
-import Link from "next/link";
+import BackButton from "./BackButton";
 
-/* Presentational primitives shared across pages (no hooks — safe in server
-   or client components). */
+/* Presentational primitives shared across pages (no hooks here — safe in
+   server or client components; BackButton is its own client component). */
 
 export function PageTitle({
   title,
@@ -15,15 +15,9 @@ export function PageTitle({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5">
-      {back && (
-        <Link
-          href={back.href}
-          className="mb-2 inline-block text-sm text-teal-700 dark:text-teal-400"
-        >
-          ← {back.label || "Back"}
-        </Link>
-      )}
+    <div className="mb-5 border-b border-zinc-200 pb-4 dark:border-zinc-800">
+      {/* History-back (the old label/href is only a fallback destination). */}
+      {back && <BackButton href={back.href} />}
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">

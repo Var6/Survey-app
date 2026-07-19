@@ -102,30 +102,47 @@ export default function ReportingHub() {
       {/* Level 2: report types for the role */}
       {role && !type && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(role === "cm" ? (["daily"] as RType[]) : (["weekly", "monthly"] as RType[])).map(
-            (t) => (
-              <RoleCard
-                key={t}
-                icon={t === "daily" ? "calendar" : "report"}
-                title={RTYPE_LABEL[t]}
-                desc={
-                  t === "daily"
-                    ? "Open a calendar and click a date to read that day's reports"
-                    : t === "weekly"
-                    ? "Review & approve weekly reports"
-                    : "Review & approve monthly reports"
-                }
-                onClick={() => setType(t)}
-              />
-            )
-          )}
+          {(role === "cm"
+            ? (["daily"] as RType[])
+            : (["daily", "weekly", "monthly"] as RType[])
+          ).map((t) => (
+            <RoleCard
+              key={t}
+              icon={t === "daily" ? "calendar" : "report"}
+              title={RTYPE_LABEL[t]}
+              desc={
+                t === "daily"
+                  ? "Open a calendar and click a date to read that day's reports"
+                  : t === "weekly"
+                  ? "Review & approve weekly reports"
+                  : "Review & approve monthly reports"
+              }
+              onClick={() => setType(t)}
+            />
+          ))}
         </div>
       )}
 
-      {/* Level 3: the report view */}
+      {/* Level 3: the report view (+ Excel download) */}
+      {role && type && (
+        <div className="flex justify-end">
+          <a
+            href={
+              type === "daily"
+                ? `/api/reports/export?role=${role}`
+                : type === "weekly"
+                ? "/api/weekly/export"
+                : "/api/monthly/export"
+            }
+            className="rounded-lg border border-teal-600 px-3 py-1.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/30"
+          >
+            ⬇ Download Excel
+          </a>
+        </div>
+      )}
       {type === "weekly" && <WeeklyReviewClient />}
       {type === "monthly" && <MonthlyReviewClient />}
-      {type === "daily" && <DailyCalendar />}
+      {type === "daily" && role && <DailyCalendar role={role} />}
     </div>
   );
 }
@@ -158,7 +175,7 @@ function RoleCard({
   );
 }
 
-function DailyCalendar() {
+function DailyCalendar({ role }: { role: Role }) {
   const [reports, setReports] = useState<DailyReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -169,7 +186,9 @@ function DailyCalendar() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await apiFetch<{ reports: DailyReport[] }>("/api/reports?period=daily");
+      const r = await apiFetch<{ reports: DailyReport[] }>(
+        `/api/reports?period=daily&role=${role}`
+      );
       setReports(r.reports);
       setErr(null);
     } catch (e) {
@@ -177,7 +196,7 @@ function DailyCalendar() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [role]);
   useEffect(() => {
     load();
   }, [load]);

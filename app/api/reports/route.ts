@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     const params = new URL(req.url).searchParams;
 
     const filter: Record<string, unknown> = {};
-    if (user.role === "cm") {
+    if (user.role === "cm" || params.get("mine") === "1") {
       filter.mobiliserId = user._id;
     } else {
       const mob = params.get("mobiliserId");
@@ -31,6 +31,13 @@ export async function GET(req: Request) {
     }
     const period = params.get("period");
     if (period && PERIODS.includes(period as ReportPeriod)) filter.period = period;
+    // Author-role filter: legacy reports (no authorRole) are all CM reports.
+    const role = params.get("role");
+    if (role === "cm") {
+      filter.$or = [{ authorRole: "cm" }, { authorRole: { $exists: false } }];
+    } else if (role === "pm") {
+      filter.authorRole = "programme_manager";
+    }
 
     const reports = await reportsCol();
     const docs = await reports.find(filter).sort({ periodDate: -1 }).toArray();
@@ -80,6 +87,7 @@ export async function POST(req: Request) {
     const doc: ReportDoc = {
       projectId: user.projectId,
       mobiliserId: user._id!,
+      authorRole: user.role,
       period: body.period as ReportPeriod,
       periodDate: body.periodDate ? new Date(body.periodDate) : now,
       metrics,

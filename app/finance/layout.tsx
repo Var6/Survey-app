@@ -6,6 +6,7 @@ const NAV: ShellNavGroup[] = [
   {
     items: [
       { href: "/finance", label: "Finance", icon: "finance" },
+      { href: "/finance/budget", label: "Budget", icon: "report" },
     ],
   },
   { items: [{ href: "/finance/profile", label: "Profile", icon: "profile" }] },

@@ -17,6 +17,7 @@ export const COLLECTIONS = {
   weeklyReports: "weekly_reports",
   monthlyReports: "monthly_reports",
   cases: "cases",
+  budgets: "budgets",
   counters: "counters",
 } as const;
 
@@ -193,6 +194,8 @@ export interface ReportDoc {
   _id?: ObjectId;
   projectId?: ObjectId;
   mobiliserId: ObjectId;
+  /** Role of the author ("cm" | "programme_manager"); legacy docs are CM. */
+  authorRole?: Role;
   period: ReportPeriod;
   /** The day/week/month this report covers (start of period). */
   periodDate: Date;
@@ -305,6 +308,49 @@ export interface MonthlyReportDoc {
   updatedAt: Date;
 }
 
+/* ─── Programme budget (funder format) ──────────────────────── */
+export type BudgetCategory =
+  | "salary_program"
+  | "salary_admin"
+  | "capex"
+  | "travel"
+  | "program"
+  | "admin";
+export type InflationType = "salary" | "nil" | "other";
+
+export interface BudgetLineYear {
+  units: number;
+  unitCost: number;
+  /** Percentage of the cost charged to this grant (default 100). */
+  allocPct: number;
+}
+
+export interface BudgetLine {
+  id: string;
+  category: BudgetCategory;
+  description: string;
+  /** Salary / Honorarium / Consultancy (for staff lines). */
+  costCategory?: string;
+  inflation: InflationType;
+  unitType?: string; // Month, Number, one-time, ...
+  years: BudgetLineYear[]; // index 0 = Year 1
+  notes?: string;
+}
+
+export interface BudgetDoc {
+  _id?: ObjectId;
+  name: string;
+  currency: string;
+  numYears: number; // 1..5
+  /** Inflation % per type, applied as (1+r)^(yearIndex). */
+  inflationRates: { salary: number; nil: number; other: number };
+  lines: BudgetLine[];
+  createdBy?: ObjectId;
+  createdByName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CounterDoc {
   _id: string; // the counter key
   seq: number;
@@ -326,6 +372,7 @@ export const weeklyReportsCol = () =>
 export const monthlyReportsCol = () =>
   col<MonthlyReportDoc>(COLLECTIONS.monthlyReports);
 export const casesCol = () => col<CaseDoc>(COLLECTIONS.cases);
+export const budgetsCol = () => col<BudgetDoc>(COLLECTIONS.budgets);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
 
 async function col<T extends import("mongodb").Document>(

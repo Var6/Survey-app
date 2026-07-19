@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client";
 import { Card, Empty, inputClass, btnPrimary, btnGhost } from "@/components/ui";
-import ReportForm from "@/components/ReportForm";
+import DailyUpdateForm from "@/components/DailyUpdateForm";
 import ReportDetail from "@/components/ReportDetail";
 
 interface Report {
@@ -55,7 +55,8 @@ export default function ReportsClient({ scope }: { scope: "director" | "cm" }) {
         <button className={`${btnGhost} mb-3`} onClick={() => setShowForm(false)}>
           ← रद्द करें
         </button>
-        <ReportForm
+        <DailyUpdateForm
+          lang="hi"
           onDone={() => {
             setShowForm(false);
             load();

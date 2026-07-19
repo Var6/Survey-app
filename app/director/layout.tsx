@@ -31,6 +31,7 @@ const NAV: ShellNavGroup[] = [
       { href: "/director/projects", label: "Projects & funds", icon: "project" },
       { href: "/director/users", label: "Users", icon: "users" },
       { href: "/director/finance", label: "Finance", icon: "finance" },
+      { href: "/director/budget", label: "Budget", icon: "report" },
       { href: "/director/sync", label: "Frappe sync", icon: "sync" },
     ],
   },
