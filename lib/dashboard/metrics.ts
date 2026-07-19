@@ -1,4 +1,5 @@
 import { surveysCol } from "@/lib/models";
+import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
 
 /**
  * Live programme dashboard metrics, computed dynamically from the survey data.
@@ -21,6 +22,10 @@ export interface DashboardMetrics {
   pregnantFollowup: number;
   pendingDocs: number;
   directorIntervention: number;
+  /** Case load split by thematic area (for the donut / bars). */
+  needsByCategory: { key: string; label: string; value: number }[];
+  /** Surveys per settlement (for the settlement bar chart). */
+  bySettlement: { code: string; label: string; value: number }[];
 }
 
 export async function computeDashboardMetrics(): Promise<DashboardMetrics> {
@@ -89,7 +94,11 @@ export async function computeDashboardMetrics(): Promise<DashboardMetrics> {
     }),
   ]);
 
-  const [oosAgg, pwdAgg] = await Promise.all([
+  const pensionCases = await surveys.countDocuments({
+    "data.pension_need": { $in: ["old_age", "widow", "disability"] },
+  });
+
+  const [oosAgg, pwdAgg, settlementAgg] = await Promise.all([
     surveys
       .aggregate([
         {
@@ -155,11 +164,35 @@ export async function computeDashboardMetrics(): Promise<DashboardMetrics> {
         { $group: { _id: null, total: { $sum: "$total" }, children: { $sum: "$children" } } },
       ])
       .toArray(),
+    surveys
+      .aggregate([
+        { $group: { _id: "$settlementCode", value: { $sum: 1 } } },
+        { $sort: { value: -1 } },
+      ])
+      .toArray(),
   ]);
 
   const outOfSchool = (oosAgg[0]?.total as number) || 0;
   const pwdTotal = (pwdAgg[0]?.total as number) || 0;
   const pwdChildren = (pwdAgg[0]?.children as number) || 0;
+
+  const bySettlement = settlementAgg.map((s) => {
+    const code = (s._id as string) || "unknown";
+    return {
+      code,
+      label: SETTLEMENT_BY_CODE[code]?.label || code,
+      value: s.value as number,
+    };
+  });
+
+  const needsByCategory = [
+    { key: "entitlements", label: "Entitlements & documents", value: pendingDocs },
+    { key: "health", label: "Health referrals", value: healthCases },
+    { key: "maternal", label: "Maternal & ICDS", value: maternalCases },
+    { key: "education", label: "Out-of-school children", value: outOfSchool },
+    { key: "disability", label: "Disability support", value: pwdTotal },
+    { key: "pension", label: "Pension", value: pensionCases },
+  ];
 
   return {
     householdsSurveyed: {
@@ -176,5 +209,7 @@ export async function computeDashboardMetrics(): Promise<DashboardMetrics> {
     pregnantFollowup,
     pendingDocs,
     directorIntervention,
+    needsByCategory,
+    bySettlement,
   };
 }

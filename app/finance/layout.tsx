@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import AppHeader from "@/components/AppHeader";
-import RoleNav from "@/components/RoleNav";
+import AppShell, { ShellNavGroup } from "@/components/AppShell";
 
-const NAV = [
-  { href: "/finance", label: "Finance" },
-  { href: "/finance/profile", label: "Profile" },
+const NAV: ShellNavGroup[] = [
+  {
+    items: [
+      { href: "/finance", label: "Finance", icon: "finance" },
+    ],
+  },
+  { items: [{ href: "/finance/profile", label: "Profile", icon: "profile" }] },
 ];
 
 export default async function FinanceLayout({
@@ -20,10 +23,14 @@ export default async function FinanceLayout({
   }
 
   return (
-    <div className="min-h-full bg-zinc-50 dark:bg-black">
-      <AppHeader name={user.name} roleLabel="Accountant" avatarUrl={user.avatarUrl} />
-      <RoleNav items={NAV} homeHref="/finance" />
-      <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
-    </div>
+    <AppShell
+      name={user.name}
+      roleLabel="Accountant"
+      avatarUrl={user.avatarUrl}
+      homeHref="/finance"
+      nav={NAV}
+    >
+      {children}
+    </AppShell>
   );
 }

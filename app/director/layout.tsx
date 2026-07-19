@@ -1,18 +1,27 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import AppHeader from "@/components/AppHeader";
-import RoleNav from "@/components/RoleNav";
+import AppShell, { ShellNavGroup } from "@/components/AppShell";
 
-const NAV = [
-  { href: "/director", label: "Overview" },
-  { href: "/director/projects", label: "Projects" },
-  { href: "/director/users", label: "Users" },
-  { href: "/director/surveys", label: "Surveys" },
-  { href: "/director/sync", label: "Sync" },
-  { href: "/director/finance", label: "Finance" },
-  { href: "/director/reports", label: "Reports" },
-  { href: "/director/weekly", label: "Weekly" },
-  { href: "/director/profile", label: "Profile" },
+const NAV: ShellNavGroup[] = [
+  { items: [{ href: "/director", label: "Overview", icon: "home" }] },
+  {
+    label: "Programme",
+    items: [
+      { href: "/director/surveys", label: "Surveys", icon: "survey" },
+      { href: "/director/reports", label: "Reports", icon: "report" },
+      { href: "/director/weekly", label: "Weekly reports", icon: "calendar" },
+    ],
+  },
+  {
+    label: "Administration",
+    items: [
+      { href: "/director/projects", label: "Projects & funds", icon: "project" },
+      { href: "/director/users", label: "Users", icon: "users" },
+      { href: "/director/finance", label: "Finance", icon: "finance" },
+      { href: "/director/sync", label: "Frappe sync", icon: "sync" },
+    ],
+  },
+  { items: [{ href: "/director/profile", label: "Profile", icon: "profile" }] },
 ];
 
 export default async function DirectorLayout({
@@ -25,10 +34,14 @@ export default async function DirectorLayout({
   if (user.role !== "director") redirect("/cm");
 
   return (
-    <div className="min-h-full bg-zinc-50 dark:bg-black">
-      <AppHeader name={user.name} roleLabel="Director" avatarUrl={user.avatarUrl} />
-      <RoleNav items={NAV} homeHref="/director" />
-      <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
-    </div>
+    <AppShell
+      name={user.name}
+      roleLabel="Director"
+      avatarUrl={user.avatarUrl}
+      homeHref="/director"
+      nav={NAV}
+    >
+      {children}
+    </AppShell>
   );
 }

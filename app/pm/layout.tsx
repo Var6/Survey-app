@@ -1,12 +1,20 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import AppHeader from "@/components/AppHeader";
-import RoleNav from "@/components/RoleNav";
+import AppShell, { ShellNavGroup } from "@/components/AppShell";
 
-const NAV = [
-  { href: "/pm", label: "Dashboard" },
-  { href: "/pm/weekly", label: "Weekly report" },
-  { href: "/pm/profile", label: "Profile" },
+const NAV: ShellNavGroup[] = [
+  {
+    items: [
+      { href: "/pm", label: "Dashboard", icon: "home" },
+    ],
+  },
+  {
+    label: "Reporting",
+    items: [
+      { href: "/pm/weekly", label: "Weekly report", icon: "report" },
+    ],
+  },
+  { items: [{ href: "/pm/profile", label: "Profile", icon: "profile" }] },
 ];
 
 export default async function PmLayout({ children }: { children: React.ReactNode }) {
@@ -24,10 +32,14 @@ export default async function PmLayout({ children }: { children: React.ReactNode
     );
   }
   return (
-    <div className="min-h-full bg-zinc-50 dark:bg-black">
-      <AppHeader name={user.name} roleLabel="Programme Manager" avatarUrl={user.avatarUrl} />
-      <RoleNav items={NAV} homeHref="/pm" />
-      <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
-    </div>
+    <AppShell
+      name={user.name}
+      roleLabel="Programme Manager"
+      avatarUrl={user.avatarUrl}
+      homeHref="/pm"
+      nav={NAV}
+    >
+      {children}
+    </AppShell>
   );
 }
