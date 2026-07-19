@@ -95,10 +95,10 @@ export default async function CmHome() {
           className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-teal-600"
         >
           <p className="font-medium text-zinc-900 dark:text-zinc-50">
-            Requisitions
+            Finance
           </p>
           <p className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Claim travel and field expenses
+            Request an advance or claim expenses
           </p>
         </Link>
       </div>

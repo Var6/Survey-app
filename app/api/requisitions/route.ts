@@ -61,8 +61,11 @@ export async function POST(req: Request) {
       purpose?: string;
       description?: string;
       projectId?: string;
+      kind?: string;
       receipts?: { key: string; url: string }[];
     }>(req);
+
+    const kind = body.kind === "advance" ? "advance" : "reimbursement";
 
     let projectId: ObjectId | undefined = user.projectId;
     if (user.role === "director") {
@@ -93,6 +96,7 @@ export async function POST(req: Request) {
     const doc: RequisitionDoc = {
       projectId,
       mobiliserId: user._id!,
+      kind,
       category: body.category?.trim() || "other",
       amount,
       currency: project.currency || "INR",

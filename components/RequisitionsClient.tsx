@@ -8,6 +8,7 @@ interface Requisition {
   id: string;
   projectName: string | null;
   mobiliserName: string | null;
+  kind: string;
   category: string;
   amount: number;
   currency: string;
@@ -31,6 +32,7 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
 
   // CM create form
   const [showForm, setShowForm] = useState(false);
+  const [kind, setKind] = useState<"advance" | "reimbursement">("reimbursement");
   const [category, setCategory] = useState("travel");
   const [amount, setAmount] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -86,6 +88,7 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
       await apiFetch("/api/requisitions", {
         method: "POST",
         body: JSON.stringify({
+          kind,
           category,
           amount: Number(amount),
           purpose,
@@ -136,7 +139,7 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
     <div className="space-y-4">
       {!isDirector && (
         <button className={btnPrimary} onClick={() => setShowForm((s) => !s)}>
-          {showForm ? "Cancel" : "+ New requisition"}
+          {showForm ? "Cancel" : "+ New request"}
         </button>
       )}
 
@@ -153,6 +156,29 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
       {showForm && !isDirector && (
         <Card>
           <form onSubmit={create} className="space-y-3">
+            <div>
+              <label className={labelClass}>Type of request</label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  ["advance", "Advance", "पैसे पहले चाहिए"],
+                  ["reimbursement", "Reimbursement", "खर्च हो चुका है"],
+                ] as const).map(([val, en, hi]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setKind(val)}
+                    className={`rounded-lg border px-3 py-2 text-left text-sm ${
+                      kind === val
+                        ? "border-teal-600 bg-teal-50 text-teal-800 dark:border-teal-500 dark:bg-teal-950/40 dark:text-teal-300"
+                        : "border-zinc-300 text-zinc-600 dark:border-zinc-700 dark:text-zinc-300"
+                    }`}
+                  >
+                    <span className="block font-medium">{en}</span>
+                    <span className="block text-[11px] opacity-80">{hi}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Category</label>
@@ -176,7 +202,9 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
               <textarea className={inputClass} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
             <div>
-              <label className={labelClass}>Receipts</label>
+              <label className={labelClass}>
+                {kind === "advance" ? "Bills (optional — attach after spending)" : "Receipts"}
+              </label>
               <div className="flex flex-wrap gap-2">
                 {receipts.map((r) => (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -204,7 +232,11 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
             </div>
             {err && <p className="text-sm text-red-600">{err}</p>}
             <button type="submit" className={btnPrimary} disabled={saving || uploading}>
-              {saving ? "Submitting…" : "Submit requisition"}
+              {saving
+                ? "Submitting…"
+                : kind === "advance"
+                ? "Request advance"
+                : "Submit claim"}
             </button>
           </form>
         </Card>
@@ -228,6 +260,15 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
                       · {r.category}
                     </span>
                   </p>
+                  <span
+                    className={`mt-0.5 inline-block rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                      r.kind === "advance"
+                        ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300"
+                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300"
+                    }`}
+                  >
+                    {r.kind === "advance" ? "Advance" : "Reimbursement"}
+                  </span>
                   <p className="text-sm text-zinc-700 dark:text-zinc-300">{r.purpose}</p>
                   <p className="mt-0.5 text-xs text-zinc-400">
                     {isDirector && r.mobiliserName ? `${r.mobiliserName} · ` : ""}

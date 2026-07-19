@@ -58,6 +58,7 @@ export function publicRequisition(
     projectName: extra?.projectName ?? null,
     mobiliserId: String(r.mobiliserId),
     mobiliserName: extra?.mobiliserName ?? null,
+    kind: r.kind ?? "reimbursement",
     category: r.category,
     amount: r.amount,
     currency: r.currency,

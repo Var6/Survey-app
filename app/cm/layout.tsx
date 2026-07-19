@@ -7,7 +7,7 @@ import OfflineSync from "@/components/OfflineSync";
 const NAV = [
   { href: "/cm", label: "Home" },
   { href: "/cm/surveys", label: "Surveys" },
-  { href: "/cm/requisitions", label: "Requisitions" },
+  { href: "/cm/requisitions", label: "Finance" },
   { href: "/cm/reports", label: "Reports" },
   { href: "/cm/profile", label: "Profile" },
 ];

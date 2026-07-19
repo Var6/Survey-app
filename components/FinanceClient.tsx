@@ -54,7 +54,7 @@ const TAB_LABEL: Record<Tab, string> = {
   funds: "Funds",
   expenses: "Expenses",
   payroll: "Payroll",
-  reimbursements: "Reimbursements",
+  reimbursements: "Requests",
   statement: "Statement",
 };
 const CATEGORIES = ["travel", "materials", "camp", "refreshments", "communication", "salary", "printing", "other"];

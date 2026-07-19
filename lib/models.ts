@@ -29,6 +29,8 @@ export type Role =
 export type SyncStatus = "pending" | "synced" | "failed";
 export type SurveyStatus = "complete" | "partial" | "refused_midway";
 export type RequisitionStatus = "pending" | "approved" | "rejected" | "paid";
+/** advance = money requested before spending; reimbursement = claim after spending. */
+export type RequisitionKind = "advance" | "reimbursement";
 export type PaymentType = "salary" | "benefit" | "bonus" | "other";
 export type PaymentStatus = "pending" | "paid";
 export type LedgerType = "allocation" | "debit" | "adjustment";
@@ -116,6 +118,7 @@ export interface RequisitionDoc {
   _id?: ObjectId;
   projectId: ObjectId;
   mobiliserId: ObjectId;
+  kind: RequisitionKind;
   category: string; // travel, materials, refreshments, other...
   amount: number;
   currency: string;
