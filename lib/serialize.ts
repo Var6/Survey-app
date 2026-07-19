@@ -8,6 +8,7 @@ import type {
   LedgerDoc,
   PaymentDoc,
   WeeklyReportDoc,
+  MonthlyReportDoc,
   CaseDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
@@ -153,6 +154,31 @@ export function publicWeeklyReport(
     submittedAt: w.submittedAt ?? null,
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
+  };
+}
+
+export function publicMonthlyReport(
+  m: MonthlyReportDoc,
+  extra?: { pmName?: string }
+) {
+  return {
+    id: String(m._id),
+    reportId: m.reportId,
+    programmeManagerId: String(m.programmeManagerId),
+    pmName: extra?.pmName ?? m.pmName ?? null,
+    monthStart: m.monthStart,
+    monthEnd: m.monthEnd,
+    status: m.status,
+    dashboard: m.dashboard ?? null,
+    settlements: m.settlements ?? [],
+    data: m.data ?? {},
+    certification: m.certification ?? {},
+    directorComments: m.directorComments ?? null,
+    directorActionPoints: m.directorActionPoints ?? [],
+    reviewedAt: m.reviewedAt ?? null,
+    submittedAt: m.submittedAt ?? null,
+    createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
   };
 }
 

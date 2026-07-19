@@ -15,6 +15,7 @@ export const COLLECTIONS = {
   ledger: "fund_ledger",
   reports: "reports",
   weeklyReports: "weekly_reports",
+  monthlyReports: "monthly_reports",
   cases: "cases",
   counters: "counters",
 } as const;
@@ -282,6 +283,28 @@ export interface CaseDoc {
   updatedAt: Date;
 }
 
+/** Programme Manager monthly report (PMM module). */
+export interface MonthlyReportDoc {
+  _id?: ObjectId;
+  reportId: string; // PMM-YYYY-MM
+  programmeManagerId: ObjectId;
+  pmName?: string;
+  monthStart: Date;
+  monthEnd: Date;
+  status: WeeklyStatus;
+  dashboard?: Record<string, unknown>;
+  settlements?: SettlementStatus[];
+  data?: Record<string, unknown>;
+  certification?: Record<string, boolean | string>;
+  directorComments?: string;
+  directorActionPoints?: WeeklyActionPoint[];
+  reviewedBy?: ObjectId;
+  reviewedAt?: Date;
+  submittedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CounterDoc {
   _id: string; // the counter key
   seq: number;
@@ -300,6 +323,8 @@ export const ledgerCol = () => col<LedgerDoc>(COLLECTIONS.ledger);
 export const reportsCol = () => col<ReportDoc>(COLLECTIONS.reports);
 export const weeklyReportsCol = () =>
   col<WeeklyReportDoc>(COLLECTIONS.weeklyReports);
+export const monthlyReportsCol = () =>
+  col<MonthlyReportDoc>(COLLECTIONS.monthlyReports);
 export const casesCol = () => col<CaseDoc>(COLLECTIONS.cases);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
 
@@ -370,6 +395,13 @@ export async function ensureIndexes(): Promise<void> {
       .collection(COLLECTIONS.weeklyReports)
       .createIndex({ programmeManagerId: 1, weekStart: -1 }),
     db.collection(COLLECTIONS.weeklyReports).createIndex({ status: 1 }),
+    db
+      .collection(COLLECTIONS.monthlyReports)
+      .createIndex({ reportId: 1 }, { unique: true }),
+    db
+      .collection(COLLECTIONS.monthlyReports)
+      .createIndex({ programmeManagerId: 1, monthStart: -1 }),
+    db.collection(COLLECTIONS.monthlyReports).createIndex({ status: 1 }),
     db.collection(COLLECTIONS.cases).createIndex({ dedupeKey: 1 }, { unique: true }),
     db
       .collection(COLLECTIONS.cases)

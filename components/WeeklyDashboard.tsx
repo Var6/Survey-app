@@ -46,7 +46,13 @@ const TG_LABEL: Record<string, string> = {
   elderly: "Elderly 60+",
 };
 
-export default function WeeklyDashboard({ dashboard }: { dashboard: Dash | null }) {
+export default function WeeklyDashboard({
+  dashboard,
+  periodLabel = "week",
+}: {
+  dashboard: Dash | null;
+  periodLabel?: string;
+}) {
   if (!dashboard) return null;
   const d = dashboard;
   return (
@@ -54,7 +60,7 @@ export default function WeeklyDashboard({ dashboard }: { dashboard: Dash | null 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat value={`${d.settlementsCovered}/${d.totalSettlements}`} label="Settlements covered" />
         <Stat value={`${d.mobiliserDeployment}/${d.totalMobilisers}`} label="Mobilisers active" />
-        <Stat value={d.householdsWeek} label="Households surveyed (week)" />
+        <Stat value={d.householdsWeek} label={`Households surveyed (${periodLabel})`} />
         <Stat value={`${d.householdsCumulative}/${d.targetHouseholds}`} label="Cumulative households" />
         <Stat value={d.followupHouseholds} label="Households need follow-up" />
         <Stat value={d.urgentHealth} label="Urgent health cases" />
@@ -64,7 +70,7 @@ export default function WeeklyDashboard({ dashboard }: { dashboard: Dash | null 
 
       <Card>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-          CM daily reports (this week)
+          CM daily reports (this {periodLabel})
         </p>
         <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
           <div><p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{d.dailyReports}</p><p className="text-zinc-500">Reports filed</p></div>

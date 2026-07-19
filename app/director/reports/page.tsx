@@ -1,5 +1,5 @@
 import { PageTitle } from "@/components/ui";
-import ReportsClient from "@/components/ReportsClient";
+import ReportingHub from "@/components/ReportingHub";
 
 export const metadata = { title: "Reports · Director" };
 
@@ -8,10 +8,10 @@ export default function DirectorReportsPage() {
     <div>
       <PageTitle
         title="Reports"
-        subtitle="Daily / weekly / monthly CM activity"
+        subtitle="Choose a role, then a report type — daily reports open in a calendar"
         back={{ href: "/director", label: "Overview" }}
       />
-      <ReportsClient scope="director" />
+      <ReportingHub />
     </div>
   );
 }
