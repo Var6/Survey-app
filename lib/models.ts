@@ -325,6 +325,16 @@ export interface BudgetLineYear {
   allocPct: number;
 }
 
+/** "Working sheet" cost break-up for a programme-expense line. */
+export interface WorkingBreakup {
+  food?: number;
+  accommodation?: number;
+  resource?: number; // resource fee / consultant
+  iec?: number;
+  others?: number;
+  assumptions?: string;
+}
+
 export interface BudgetLine {
   id: string;
   category: BudgetCategory;
@@ -335,6 +345,8 @@ export interface BudgetLine {
   unitType?: string; // Month, Number, one-time, ...
   years: BudgetLineYear[]; // index 0 = Year 1
   notes?: string;
+  /** Optional working-sheet break-up (used for programme expenses). */
+  working?: WorkingBreakup;
 }
 
 export interface BudgetDoc {

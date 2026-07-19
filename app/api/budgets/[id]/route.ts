@@ -42,6 +42,19 @@ function sanitizeLines(raw: unknown, numYears: number): BudgetLine[] {
         };
       }),
       notes: l.notes ? String(l.notes).slice(0, 1000) : undefined,
+      working:
+        l.working && typeof l.working === "object"
+          ? {
+              food: Number(l.working.food) || 0,
+              accommodation: Number(l.working.accommodation) || 0,
+              resource: Number(l.working.resource) || 0,
+              iec: Number(l.working.iec) || 0,
+              others: Number(l.working.others) || 0,
+              assumptions: l.working.assumptions
+                ? String(l.working.assumptions).slice(0, 1000)
+                : undefined,
+            }
+          : undefined,
     }));
 }
 

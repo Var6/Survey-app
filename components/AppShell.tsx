@@ -98,13 +98,15 @@ function NavLinks({
   );
 }
 
-function Brand({ collapsed }: { collapsed?: boolean }) {
-  return (
-    <div
-      className={`flex items-center border-b border-zinc-200 py-4 dark:border-zinc-800 ${
-        collapsed ? "justify-center px-2" : "gap-2.5 px-5"
-      }`}
-    >
+function Brand({
+  collapsed,
+  onToggle,
+}: {
+  collapsed?: boolean;
+  onToggle?: () => void;
+}) {
+  const inner = (
+    <>
       <Image src="/logo-mark.png" alt="Janman" width={32} height={32} className="rounded-lg" />
       {!collapsed && (
         <div className="leading-tight">
@@ -112,8 +114,26 @@ function Brand({ collapsed }: { collapsed?: boolean }) {
           <p className="text-[11px] text-zinc-400">Field Programme</p>
         </div>
       )}
-    </div>
+    </>
   );
+  const cls = `flex h-16 w-full items-center border-b border-zinc-200 dark:border-zinc-800 ${
+    collapsed ? "justify-center px-2" : "gap-2.5 px-5"
+  }`;
+  // The logo itself is the collapse/expand control on desktop.
+  if (onToggle) {
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className={`${cls} cursor-pointer text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-900`}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
 }
 
 function UserFooter({
@@ -204,17 +224,9 @@ export default function AppShell({
           collapsed ? "w-16" : "w-64"
         }`}
       >
-        <Brand collapsed={collapsed} />
+        <Brand collapsed={collapsed} onToggle={toggleCollapsed} />
         <NavLinks nav={nav} homeHref={homeHref} collapsed={collapsed} />
         <UserFooter name={name} roleLabel={roleLabel} avatarUrl={avatarUrl} collapsed={collapsed} />
-        <button
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-16 flex h-6 w-6 items-center justify-center rounded-full border border-zinc-200 bg-white text-xs text-zinc-500 shadow-sm transition hover:text-teal-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400"
-        >
-          {collapsed ? "›" : "‹"}
-        </button>
       </aside>
 
       {/* Mobile top bar */}
@@ -256,6 +268,18 @@ export default function AppShell({
 
       {/* Main */}
       <main className={collapsed ? "lg:pl-16" : "lg:pl-64"}>
+        {/* Desktop top band — its bottom border runs at the same height as the
+            brand divider, so the line continues seamlessly across the page. */}
+        <div className="sticky top-0 z-10 hidden h-16 items-center justify-end border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-zinc-950 lg:flex">
+          <span className="text-xs text-zinc-400">
+            {roleLabel} ·{" "}
+            {new Date().toLocaleDateString("en-IN", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}
+          </span>
+        </div>
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>

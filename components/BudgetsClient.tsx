@@ -415,6 +415,7 @@ function BudgetEditor({
                         doc={doc}
                         years={years}
                         staff={!!cat.staff}
+                        isProgram={cat.key === "program"}
                         onChange={(p) => setLine(l.id, p)}
                         onYearChange={(yi, k, v) => setLineYear(l.id, yi, k, v)}
                         onRemove={() => removeLine(l.id)}
@@ -431,11 +432,20 @@ function BudgetEditor({
   );
 }
 
+const WORKING_FIELDS: { key: keyof NonNullable<BudgetLine["working"]>; label: string }[] = [
+  { key: "food", label: "Food" },
+  { key: "accommodation", label: "Accomodation" },
+  { key: "resource", label: "Resource fee / Consultant" },
+  { key: "iec", label: "IEC" },
+  { key: "others", label: "Others" },
+];
+
 function LineRow({
   line,
   doc,
   years,
   staff,
+  isProgram,
   onChange,
   onYearChange,
   onRemove,
@@ -444,10 +454,21 @@ function LineRow({
   doc: BudgetDoc;
   years: number;
   staff: boolean;
+  isProgram: boolean;
   onChange: (p: Partial<BudgetLine>) => void;
   onYearChange: (yi: number, key: "units" | "unitCost" | "allocPct", v: number) => void;
   onRemove: () => void;
 }) {
+  const [showWorking, setShowWorking] = useState(
+    !!line.working &&
+      (Object.values(line.working).some((v) => typeof v === "number" && v > 0) ||
+        !!line.working.assumptions)
+  );
+  const w = line.working || {};
+  const workingTotal =
+    (w.food || 0) + (w.accommodation || 0) + (w.resource || 0) + (w.iec || 0) + (w.others || 0);
+  const setW = (patch: Partial<NonNullable<BudgetLine["working"]>>) =>
+    onChange({ working: { ...w, ...patch } });
   return (
     <>
       <tr className="border-t border-zinc-100 align-top dark:border-zinc-900">
@@ -548,7 +569,7 @@ function LineRow({
         </td>
       </tr>
       <tr className="align-top">
-        <td colSpan={staff ? 5 : 4} className="pb-2 pr-2">
+        <td colSpan={staff ? 4 : 3} className="pb-2 pr-2">
           <input
             className={`${cellCls} text-left`}
             value={line.notes || ""}
@@ -556,8 +577,51 @@ function LineRow({
             onChange={(e) => onChange({ notes: e.target.value || undefined })}
           />
         </td>
+        <td className="pb-2 pr-2">
+          {isProgram && (
+            <button
+              className="whitespace-nowrap rounded px-1.5 py-1 text-[11px] font-semibold text-teal-700 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/30"
+              onClick={() => setShowWorking((s) => !s)}
+            >
+              {showWorking ? "▾ Working" : "▸ Working"}
+            </button>
+          )}
+        </td>
         <td colSpan={years * 4 + 2} />
       </tr>
+      {isProgram && showWorking && (
+        <tr className="align-top">
+          <td colSpan={years * 4 + (staff ? 7 : 6)} className="pb-3 pr-2">
+            <div className="rounded-lg bg-zinc-50 p-2.5 dark:bg-zinc-900">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                Working sheet — cost break-up
+              </p>
+              <div className="flex flex-wrap items-end gap-2">
+                {WORKING_FIELDS.map((f) => (
+                  <label key={f.key} className="block">
+                    <span className="mb-0.5 block text-[11px] text-zinc-500">{f.label}</span>
+                    <input
+                      className={`${cellCls} w-28`}
+                      type="number"
+                      value={(w[f.key] as number) || ""}
+                      onChange={(e) => setW({ [f.key]: Number(e.target.value) || 0 })}
+                    />
+                  </label>
+                ))}
+                <p className="pb-1 text-xs font-bold tabular-nums text-zinc-700 dark:text-zinc-300">
+                  Total: {workingTotal.toLocaleString("en-IN")}
+                </p>
+              </div>
+              <input
+                className={`${cellCls} mt-2 text-left`}
+                value={w.assumptions || ""}
+                placeholder="Assumptions (e.g. 2 meetings/month × 12 communities × ₹500 incl. tea & snacks)"
+                onChange={(e) => setW({ assumptions: e.target.value || undefined })}
+              />
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 }

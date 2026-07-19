@@ -340,6 +340,51 @@ export async function buildBudgetWorkbook(doc: BudgetDoc): Promise<Buffer> {
     det.addRow(row);
   }
 
+  // ── Working sheet (cost break-up per programme expense) ──
+  const workingLines = (doc.lines || []).filter(
+    (l) =>
+      l.working &&
+      ((l.working.food || 0) +
+        (l.working.accommodation || 0) +
+        (l.working.resource || 0) +
+        (l.working.iec || 0) +
+        (l.working.others || 0) >
+        0 ||
+        l.working.assumptions)
+  );
+  if (workingLines.length > 0) {
+    const wk = wb.addWorksheet("Working");
+    wk.columns = [
+      { header: "Program expense", key: "desc", width: 36 },
+      { header: "Food", key: "food", width: 12 },
+      { header: "Accomodation", key: "acc", width: 14 },
+      { header: "Resource fee/ Consultant", key: "res", width: 20 },
+      { header: "IEC", key: "iec", width: 12 },
+      { header: "Others", key: "oth", width: 12 },
+      { header: "Total", key: "total", width: 14 },
+      { header: "Assumptions", key: "assumptions", width: 60 },
+    ];
+    wk.getRow(1).font = { bold: true };
+    for (const l of workingLines) {
+      const w = l.working!;
+      wk.addRow({
+        desc: l.description,
+        food: w.food || 0,
+        acc: w.accommodation || 0,
+        res: w.resource || 0,
+        iec: w.iec || 0,
+        oth: w.others || 0,
+        total:
+          (w.food || 0) +
+          (w.accommodation || 0) +
+          (w.resource || 0) +
+          (w.iec || 0) +
+          (w.others || 0),
+        assumptions: w.assumptions || "",
+      });
+    }
+  }
+
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.from(buf as ArrayBuffer);
 }
