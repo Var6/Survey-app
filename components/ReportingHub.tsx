@@ -321,9 +321,26 @@ function DailyCalendar({ role }: { role: Role }) {
             </div>
             {active ? (
               <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-                <p className="mb-2 font-semibold text-zinc-900 dark:text-zinc-50">
-                  {active.mobiliserName || "Mobiliser"}
-                </p>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                    {active.mobiliserName || "Mobiliser"}
+                  </p>
+                  <button
+                    className="rounded px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    onClick={async () => {
+                      if (!window.confirm("Delete this daily report permanently?")) return;
+                      try {
+                        await apiFetch(`/api/reports/${active.id}`, { method: "DELETE" });
+                        setSelReport(null);
+                        await load();
+                      } catch (e) {
+                        setErr((e as Error).message);
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
                 <ReportDetail data={active.data} />
                 {active.notes && (
                   <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{active.notes}</p>

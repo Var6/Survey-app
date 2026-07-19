@@ -310,6 +310,20 @@ function Expenses({ projects }: { projects: Project[] }) {
                     {formatDate(x.date)}
                   </p>
                 </div>
+                <button
+                  className="rounded px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={async () => {
+                    if (!window.confirm("Delete this expense permanently?")) return;
+                    try {
+                      await apiFetch(`/api/expenses/${x.id}`, { method: "DELETE" });
+                      await load();
+                    } catch (e) {
+                      setErr((e as Error).message);
+                    }
+                  }}
+                >
+                  Delete
+                </button>
               </div>
               {x.receipts.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
@@ -486,6 +500,22 @@ function Payroll() {
                   {p.status === "pending" && (
                     <button className={btnGhost} onClick={() => pay(p.id)}>
                       Pay now
+                    </button>
+                  )}
+                  {p.status === "pending" && (
+                    <button
+                      className="rounded px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      onClick={async () => {
+                        if (!window.confirm("Delete this pending payment?")) return;
+                        try {
+                          await apiFetch(`/api/payments/${p.id}`, { method: "DELETE" });
+                          await load();
+                        } catch (e) {
+                          setErr((e as Error).message);
+                        }
+                      }}
+                    >
+                      Delete
                     </button>
                   )}
                 </div>

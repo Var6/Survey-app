@@ -1,6 +1,6 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireUser } from "@/lib/api";
-import { surveysCol, usersCol } from "@/lib/models";
+import { json, handleError, requireUser, requireDirector } from "@/lib/api";
+import { surveysCol, usersCol, casesCol } from "@/lib/models";
 import { publicSurvey } from "@/lib/serialize";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -38,6 +38,28 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
         images: survey.images ?? [],
       },
     });
+  } catch (e) {
+    return handleError(e);
+  }
+}
+
+/** Director-only: delete a survey and the cases derived from it. */
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    await requireDirector();
+    const { id } = await ctx.params;
+    let _id: ObjectId;
+    try {
+      _id = new ObjectId(id);
+    } catch {
+      return json({ error: "Invalid id" }, 400);
+    }
+    const surveys = await surveysCol();
+    const res = await surveys.deleteOne({ _id });
+    if (!res.deletedCount) return json({ error: "Survey not found" }, 404);
+    const cases = await casesCol();
+    await cases.deleteMany({ surveyId: _id });
+    return json({ ok: true });
   } catch (e) {
     return handleError(e);
   }

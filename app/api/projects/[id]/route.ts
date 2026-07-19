@@ -106,3 +106,22 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     return handleError(e);
   }
 }
+
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    await requireFinance();
+    const { id } = await ctx.params;
+    const _id = oid(id);
+    if (!_id) return json({ error: "Invalid id" }, 400);
+
+    const projects = await projectsCol();
+    const res = await projects.deleteOne({ _id });
+    if (!res.deletedCount) return json({ error: "Project not found" }, 404);
+    // Remove the project's fund-ledger history too.
+    const ledger = await ledgerCol();
+    await ledger.deleteMany({ projectId: _id });
+    return json({ ok: true });
+  } catch (e) {
+    return handleError(e);
+  }
+}

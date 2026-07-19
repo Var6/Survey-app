@@ -44,6 +44,7 @@ export default function UsersClient() {
   const [filter, setFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const [role, setRole] = useState("cm");
   const [name, setName] = useState("");
@@ -118,6 +119,18 @@ export default function UsersClient() {
         method: "PATCH",
         body: JSON.stringify({ active: !u.active }),
       });
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
+  async function removeUser(u: User) {
+    if (!window.confirm(`Delete ${u.name} (${u.email}) permanently? This cannot be undone.`))
+      return;
+    try {
+      await apiFetch(`/api/users/${u.id}`, { method: "DELETE" });
+      setCreated(`${u.name} deleted`);
       await load();
     } catch (e) {
       setErr((e as Error).message);
@@ -269,18 +282,164 @@ export default function UsersClient() {
                   <Badge value={u.active ? "active" : "inactive"} />
                 </div>
               </div>
-              <div className="mt-3 flex gap-2">
-                <button className={btnGhost} onClick={() => toggleActive(u)}>
-                  {u.active ? "Deactivate" : "Activate"}
-                </button>
-                <button className={btnGhost} onClick={() => resetPassword(u)}>
-                  Reset password
-                </button>
-              </div>
+              {editing === u.id ? (
+                <UserEditForm
+                  user={u}
+                  projects={projects}
+                  onCancel={() => setEditing(null)}
+                  onSaved={async (msg) => {
+                    setEditing(null);
+                    setCreated(msg);
+                    await load();
+                  }}
+                  onError={setErr}
+                />
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className={btnGhost} onClick={() => setEditing(u.id)}>
+                    ✎ Edit
+                  </button>
+                  <button className={btnGhost} onClick={() => toggleActive(u)}>
+                    {u.active ? "Deactivate" : "Activate"}
+                  </button>
+                  <button className={btnGhost} onClick={() => resetPassword(u)}>
+                    Reset password
+                  </button>
+                  <button
+                    className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
+                    onClick={() => removeUser(u)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </Card>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Inline edit form: every field incl. role and settlements ──── */
+function UserEditForm({
+  user,
+  projects,
+  onCancel,
+  onSaved,
+  onError,
+}: {
+  user: User;
+  projects: Project[];
+  onCancel: () => void;
+  onSaved: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [phone, setPhone] = useState(user.phone || "");
+  const [role, setRole] = useState<string>(user.role);
+  const [mobiliserCode, setMobiliserCode] = useState(user.mobiliserCode || "");
+  const [projectId, setProjectId] = useState(user.projectId || "");
+  const [communities, setCommunities] = useState<string[]>(user.communities || []);
+  const [saving, setSaving] = useState(false);
+
+  const toggleCommunity = (code: string) =>
+    setCommunities((c) => (c.includes(code) ? c.filter((x) => x !== code) : [...c, code]));
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await apiFetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          role,
+          mobiliserCode: role === "cm" ? mobiliserCode : "",
+          projectId: role === "cm" ? projectId || null : null,
+          communities: role === "cm" ? communities : [],
+        }),
+      });
+      onSaved(`${name} updated`);
+    } catch (e) {
+      onError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="mt-3 space-y-3 rounded-xl bg-zinc-50 p-3 dark:bg-zinc-900">
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className={labelClass}>Full name</label>
+          <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div>
+          <label className={labelClass}>Email (login)</label>
+          <input className={inputClass} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div>
+          <label className={labelClass}>Phone</label>
+          <input className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+        <div>
+          <label className={labelClass}>Role</label>
+          <select className={inputClass} value={role} onChange={(e) => setRole(e.target.value)}>
+            {ROLE_OPTIONS.map((r) => (
+              <option key={r.value} value={r.value}>{r.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {role === "cm" && (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Mobiliser code</label>
+              <select className={inputClass} value={mobiliserCode} onChange={(e) => setMobiliserCode(e.target.value)}>
+                <option value="">—</option>
+                {MOBILISER_CODES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Project</label>
+              <select className={inputClass} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                <option value="">—</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className={labelClass}>Assigned settlements</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {SETTLEMENTS.map((s) => (
+                <label key={s.code} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm dark:border-zinc-800 dark:bg-zinc-950">
+                  <input type="checkbox" checked={communities.includes(s.code)} onChange={() => toggleCommunity(s.code)} />
+                  <span className="text-zinc-700 dark:text-zinc-300">{s.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className="flex gap-2">
+        <button type="submit" className={btnPrimary} disabled={saving}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        <button type="button" className={btnGhost} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

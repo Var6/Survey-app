@@ -74,6 +74,21 @@ export default function SurveysClient({
     }
   }, [isDirector]);
 
+  async function removeSurvey(id: string, householdId: string) {
+    if (
+      !window.confirm(
+        `Delete survey ${householdId} permanently? Cases derived from it are removed too.`
+      )
+    )
+      return;
+    try {
+      await apiFetch(`/api/surveys/${id}`, { method: "DELETE" });
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -142,6 +157,14 @@ export default function SurveysClient({
                 <div className="flex flex-col items-end gap-1.5">
                   <Badge value={r.status} />
                   <Badge value={r.sync.status} />
+                  {scope === "director" && (
+                    <button
+                      className="rounded px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                      onClick={() => removeSurvey(r.id, r.householdId)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </Card>

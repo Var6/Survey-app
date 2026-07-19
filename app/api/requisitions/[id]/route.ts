@@ -3,6 +3,30 @@ import { json, handleError, requireFinance, readJson } from "@/lib/api";
 import { requisitionsCol } from "@/lib/models";
 import { publicRequisition } from "@/lib/serialize";
 
+/** Delete a requisition. Paid ones are immutable (money already moved). */
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    await requireFinance();
+    const { id } = await ctx.params;
+    let _id: ObjectId;
+    try {
+      _id = new ObjectId(id);
+    } catch {
+      return json({ error: "Invalid id" }, 400);
+    }
+    const reqs = await requisitionsCol();
+    const doc = await reqs.findOne({ _id });
+    if (!doc) return json({ error: "Requisition not found" }, 404);
+    if (doc.status === "paid") {
+      return json({ error: "Paid requisitions cannot be deleted (ledger already debited)" }, 409);
+    }
+    await reqs.deleteOne({ _id });
+    return json({ ok: true });
+  } catch (e) {
+    return handleError(e);
+  }
+}
+
 export async function PATCH(
   req: Request,
   ctx: { params: Promise<{ id: string }> }

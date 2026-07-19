@@ -159,8 +159,14 @@ export default function ProfileClient() {
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>
             <dt className="text-zinc-500">Role</dt>
-            <dd className="font-medium capitalize text-zinc-900 dark:text-zinc-100">
-              {user.role === "cm" ? "Community Mobiliser" : "Director"}
+            <dd className="font-medium text-zinc-900 dark:text-zinc-100">
+              {{
+                cm: "Community Mobiliser",
+                director: "Director",
+                accountant: "Accountant",
+                programme_manager: "Programme Manager",
+                mis: "Supervisor / MIS",
+              }[user.role] || user.role}
             </dd>
           </div>
           {user.mobiliserCode && (

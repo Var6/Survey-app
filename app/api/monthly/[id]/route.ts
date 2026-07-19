@@ -36,6 +36,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   }
 }
 
+/** Director-only: delete a monthly report (e.g. duplicates / test data). */
+export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  try {
+    await requireRoles("director");
+    const { id } = await ctx.params;
+    const _id = oid(id);
+    if (!_id) return json({ error: "Invalid id" }, 400);
+    const col = await monthlyReportsCol();
+    const res = await col.deleteOne({ _id });
+    if (!res.deletedCount) return json({ error: "Report not found" }, 404);
+    return json({ ok: true });
+  } catch (e) {
+    return handleError(e);
+  }
+}
+
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const pm = await requireRoles("programme_manager");

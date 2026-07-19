@@ -8,6 +8,7 @@ interface Project {
   id: string;
   name: string;
   funder: string | null;
+  description: string | null;
   currency: string;
   totalFunds: number;
   spentFunds: number;
@@ -32,6 +33,52 @@ export default function ProjectsClient() {
   const [fundsAmount, setFundsAmount] = useState("");
   const [fundsMode, setFundsMode] = useState<"add" | "reduce">("add");
   const [fundsNote, setFundsNote] = useState("");
+
+  const [editFor, setEditFor] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editFunder, setEditFunder] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
+  function openEdit(p: Project) {
+    setEditFor(p.id);
+    setEditName(p.name);
+    setEditFunder(p.funder || "");
+    setEditDescription(p.description || "");
+    setFundsFor(null);
+    setErr(null);
+  }
+
+  async function saveEdit(id: string) {
+    try {
+      await apiFetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: editName,
+          funder: editFunder,
+          description: editDescription,
+        }),
+      });
+      setEditFor(null);
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
+  async function removeProject(p: Project) {
+    if (
+      !window.confirm(
+        `Delete project "${p.name}" permanently? Its fund ledger history is removed too. This cannot be undone.`
+      )
+    )
+      return;
+    try {
+      await apiFetch(`/api/projects/${p.id}`, { method: "DELETE" });
+      await load();
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
 
   async function load() {
     try {
@@ -186,7 +233,32 @@ export default function ProjectsClient() {
                   <p className="text-zinc-500">Balance</p>
                 </div>
               </div>
-              {fundsFor === p.id ? (
+              {editFor === p.id ? (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={labelClass}>Project name</label>
+                      <input className={inputClass} value={editName} onChange={(e) => setEditName(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Funder</label>
+                      <input className={inputClass} value={editFunder} onChange={(e) => setEditFunder(e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Description</label>
+                    <textarea className={inputClass} rows={2} value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+                  </div>
+                  <div className="flex gap-2">
+                    <button className={btnPrimary} onClick={() => saveEdit(p.id)}>
+                      Save changes
+                    </button>
+                    <button className={btnGhost} onClick={() => setEditFor(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : fundsFor === p.id ? (
                 <div className="mt-3 space-y-2">
                   <p className="text-xs font-medium text-zinc-500">
                     {fundsMode === "add" ? "Add funds to" : "Reduce funds from"} this project
@@ -215,12 +287,21 @@ export default function ProjectsClient() {
                   />
                 </div>
               ) : (
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button className={btnGhost} onClick={() => openFunds(p.id, "add")}>
                     + Add funds
                   </button>
                   <button className={btnGhost} onClick={() => openFunds(p.id, "reduce")}>
                     − Reduce funds
+                  </button>
+                  <button className={btnGhost} onClick={() => openEdit(p)}>
+                    ✎ Edit
+                  </button>
+                  <button
+                    className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
+                    onClick={() => removeProject(p)}
+                  >
+                    Delete
                   </button>
                 </div>
               )}

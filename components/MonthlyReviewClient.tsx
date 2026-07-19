@@ -200,20 +200,36 @@ export default function MonthlyReviewClient() {
         <div className="space-y-2">
           {rows.map((r) => (
             <Card key={r.id}>
-              <button
-                className="flex w-full items-center justify-between gap-3 text-left"
-                onClick={() => open(r.id)}
-              >
-                <div>
-                  <p className="font-semibold text-zinc-900 dark:text-zinc-50">{r.reportId}</p>
-                  <p className="text-xs text-zinc-500">
-                    {r.pmName} · {formatDate(r.monthStart)} – {formatDate(r.monthEnd)}
-                  </p>
-                </div>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[r.status]}`}>
-                  {r.status}
-                </span>
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  className="flex flex-1 items-center justify-between gap-3 text-left"
+                  onClick={() => open(r.id)}
+                >
+                  <div>
+                    <p className="font-semibold text-zinc-900 dark:text-zinc-50">{r.reportId}</p>
+                    <p className="text-xs text-zinc-500">
+                      {r.pmName} · {formatDate(r.monthStart)} – {formatDate(r.monthEnd)}
+                    </p>
+                  </div>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[r.status]}`}>
+                    {r.status}
+                  </span>
+                </button>
+                <button
+                  className="rounded px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
+                  onClick={async () => {
+                    if (!window.confirm(`Delete monthly report ${r.reportId} permanently?`)) return;
+                    try {
+                      await apiFetch(`/api/monthly/${r.id}`, { method: "DELETE" });
+                      await load();
+                    } catch (e) {
+                      setErr((e as Error).message);
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </Card>
           ))}
         </div>
