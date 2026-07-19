@@ -26,6 +26,9 @@ export default async function MisHome() {
       <div className="mb-6">
         <ProgrammeDashboard />
       </div>
+      <h2 className="mb-3 text-base font-bold text-zinc-800 dark:text-zinc-100">
+        Weekly command dashboard
+      </h2>
       {d ? (
         <WeeklyDashboard dashboard={d.dashboard} />
       ) : (
