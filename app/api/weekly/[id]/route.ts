@@ -46,9 +46,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const col = await weeklyReportsCol();
     const doc = await col.findOne({ _id });
     if (!doc) return json({ error: "Report not found" }, 404);
-    if (String(doc.programmeManagerId) !== String(pm._id)) {
-      return json({ error: "Forbidden" }, 403);
-    }
+    // Single-PM programme: any programme_manager may edit the week's report
+    // (the reportId is global per week, so a different PM login must not 403).
     if (doc.status !== "draft" && doc.status !== "returned") {
       return json({ error: "This report is locked (already submitted)." }, 409);
     }
