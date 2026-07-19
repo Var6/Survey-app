@@ -34,6 +34,8 @@ export interface Option {
 export interface Validation {
   min?: number;
   max?: number;
+  /** cap this integer at the current value of another field (e.g. household size) */
+  maxFrom?: string;
   /** exact number of digits (e.g. phone = 10) */
   digits?: number;
   /** max selections for multiselect */

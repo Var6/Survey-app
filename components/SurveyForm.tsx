@@ -29,12 +29,35 @@ function optLabel(o: Option): string {
   return o.hi && o.hi.trim() ? o.hi : o.en;
 }
 
-/** Strictly clean an integer input: digits only, clamped to max. */
-function cleanInt(field: Field, raw: string): number | "" {
+/** Gender fields where "other" is an identity, not something to specify. */
+const GENDER_FIELDS = new Set([
+  "member_gender",
+  "child_0_3_gender",
+  "child_gender",
+  "youth_gender",
+]);
+
+/** Should we show an "Other — please specify" text box for this field? */
+function otherSelected(field: Field, value: unknown): boolean {
+  if (GENDER_FIELDS.has(field.name)) return false;
+  if (!field.options?.some((o) => o.code === "other")) return false;
+  if (field.type === "select") return value === "other";
+  if (field.type === "multiselect")
+    return Array.isArray(value) && (value as string[]).includes("other");
+  return false;
+}
+
+/** Strictly clean an integer input: digits only, clamped to max (and maxFrom). */
+function cleanInt(field: Field, raw: string, ctx?: Record<string, unknown>): number | "" {
   const digits = raw.replace(/[^\d]/g, "");
   if (digits === "") return "";
   let n = parseInt(digits, 10);
-  const max = field.validation?.max;
+  let max = field.validation?.max;
+  const mf = field.validation?.maxFrom;
+  if (mf && ctx) {
+    const m = Number(ctx[mf]);
+    if (Number.isFinite(m)) max = max !== undefined ? Math.min(max, m) : m;
+  }
   if (max !== undefined && n > max) n = max;
   return n;
 }
@@ -112,6 +135,7 @@ export default function SurveyForm({
     ctx: Values,
     value: unknown,
     onChange: (v: unknown) => void,
+    setField: (name: string, v: unknown) => void,
     keyPrefix: string
   ) {
     const required = isFieldRequired(field, ctx) && !(field.name === "mobiliser_code" && role === "director");
@@ -237,7 +261,7 @@ export default function SurveyForm({
           inputMode="numeric"
           pattern="[0-9]*"
           value={strVal}
-          onChange={(e) => onChange(cleanInt(field, e.target.value))}
+          onChange={(e) => onChange(cleanInt(field, e.target.value, ctx))}
         />
       );
     } else if (field.type === "phone") {
@@ -266,6 +290,14 @@ export default function SurveyForm({
       <div key={keyPrefix + field.name}>
         {label}
         {control}
+        {otherSelected(field, value) && (
+          <input
+            className={`${inputClass} mt-2`}
+            placeholder="कृपया लिखें कि 'अन्य' क्या है"
+            value={(ctx[`${field.name}_other`] as string) || ""}
+            onChange={(e) => setField(`${field.name}_other`, e.target.value)}
+          />
+        )}
         {err && <p className="mt-0.5 text-xs text-red-500">{err}</p>}
       </div>
     );
@@ -298,7 +330,14 @@ export default function SurveyForm({
                 {group.fields
                   .filter((f) => isFieldVisible(f, ctx))
                   .map((f) =>
-                    renderField(f, ctx, row[f.name], (v) => setRow(group.name, i, f.name, v), `${group.name}.${i}.`)
+                    renderField(
+                      f,
+                      ctx,
+                      row[f.name],
+                      (v) => setRow(group.name, i, f.name, v),
+                      (n, v) => setRow(group.name, i, n, v),
+                      `${group.name}.${i}.`
+                    )
                   )}
               </div>
             </div>
@@ -490,7 +529,14 @@ export default function SurveyForm({
           isRepeat(item)
             ? renderRepeat(item)
             : isFieldVisible(item, values)
-            ? renderField(item, values, values[item.name], (v) => setValue(item.name, v), "")
+            ? renderField(
+                item,
+                values,
+                values[item.name],
+                (v) => setValue(item.name, v),
+                (n, v) => setValue(n, v),
+                ""
+              )
             : null
         )}
       </div>

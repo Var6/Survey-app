@@ -451,7 +451,8 @@ const intCount = (qid: string, name: string, en: string, hi: string): Field => (
   label: { en, hi },
   type: "integer",
   required: true,
-  validation: { min: 0, max: 25 },
+  // Can't be more people than the whole household.
+  validation: { min: 0, max: 25, maxFrom: "hh_total_members" },
 });
 
 const sectionE: Section = {
@@ -704,7 +705,7 @@ const sectionG: Section = {
       name: "uses_govt_health",
       label: {
         en: "How often are govt. health facilities used?",
-        hi: "सरकारी स्वास्थ्य केंद्र कितनी बार इस्तेमाल करते हैं?",
+        hi: "सरकारी स्वास्थ्य केंद्र का कितनी बार इस्तेमाल करते हैं?",
       },
       type: "select",
       options: [
@@ -741,7 +742,7 @@ const sectionG: Section = {
       name: "knows_asha_anm_aww",
       label: {
         en: "Does the household know the ASHA / ANM / AWW?",
-        hi: "क्या घर ASHA/ANM/आंगनवाड़ी कार्यकर्ता को जानता है?",
+        hi: "क्या घर के लोग ASHA/ANM/आंगनवाड़ी कार्यकर्ता को जानते हैं?",
       },
       type: "select",
       options: [
@@ -898,7 +899,7 @@ const sectionH: Section = {
       name: "pregnancy_warning_reported",
       label: {
         en: "Any warning sign reported to ASHA / ANM?",
-        hi: "क्या कोई ख़तरे का लक्षण ASHA/ANM को बताया गया?",
+        hi: "क्या ख़तरे का कोई लक्षण ASHA/ANM को बताया गया?",
       },
       type: "select",
       options: YN_DK_NR(),
@@ -1392,7 +1393,7 @@ const sectionM: Section = {
     {
       qid: "M1",
       name: "water_issue",
-      label: { en: "Problem getting clean drinking water?", hi: "क्या साफ़ पीने के पानी में दिक्कत है?" },
+      label: { en: "Problem getting clean drinking water?", hi: "क्या साफ़ पीने का पानी मिलने में दिक्कत है?" },
       type: "select",
       options: [
         o("no_issue", "No issue", "कोई दिक्कत नहीं"),

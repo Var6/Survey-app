@@ -127,7 +127,12 @@ export function validateField(
     if (field.type === "integer" && !Number.isInteger(n))
       return "पूरी संख्या दर्ज करें";
     if (v?.min !== undefined && n < v.min) return `कम से कम ${v.min}`;
-    if (v?.max !== undefined && n > v.max) return `ज़्यादा से ज़्यादा ${v.max}`;
+    let vmax = v?.max;
+    if (v?.maxFrom) {
+      const m = Number(values[v.maxFrom]);
+      if (Number.isFinite(m)) vmax = vmax !== undefined ? Math.min(vmax, m) : m;
+    }
+    if (vmax !== undefined && n > vmax) return `ज़्यादा से ज़्यादा ${vmax}`;
   }
 
   if (field.type === "phone" && v?.digits) {
