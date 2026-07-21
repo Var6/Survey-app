@@ -1,7 +1,9 @@
 import BackButton from "./BackButton";
+import { PageHeaderBroadcast } from "./PageHeader";
 
 /* Presentational primitives shared across pages (no hooks here — safe in
-   server or client components; BackButton is its own client component). */
+   server or client components; BackButton/PageHeaderBroadcast are their own
+   client components). */
 
 export function PageTitle({
   title,
@@ -16,6 +18,8 @@ export function PageTitle({
 }) {
   return (
     <div className="mb-5 border-b border-zinc-200 pb-4 dark:border-zinc-800">
+      {/* Mirrors the title + subtitle into the desktop top bar. */}
+      <PageHeaderBroadcast title={title} subtitle={subtitle} />
       {/* History-back (the old label/href is only a fallback destination). */}
       {back && <BackButton href={back.href} />}
       <div className="flex items-start justify-between gap-3">

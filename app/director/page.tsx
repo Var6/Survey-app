@@ -1,4 +1,5 @@
 import ProgrammeDashboard from "@/components/ProgrammeDashboard";
+import { PageHeaderBroadcast } from "@/components/PageHeader";
 import { StatTile } from "@/components/charts";
 import {
   surveysCol,
@@ -32,6 +33,10 @@ export default async function DirectorHome() {
 
   return (
     <div className="space-y-6">
+      <PageHeaderBroadcast
+        title="Overview"
+        subtitle="Programme-wide, real-time view across all mobilisers and settlements"
+      />
       <div>
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Overview</h1>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">

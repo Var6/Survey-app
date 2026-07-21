@@ -10,6 +10,7 @@ import {
   closedStage,
 } from "@/lib/cases/modules";
 import { Icon } from "./icons";
+import { PageHeaderBroadcast } from "./PageHeader";
 
 interface HistoryItem {
   at: string;
@@ -122,6 +123,10 @@ export default function CaseQueue({
 
   return (
     <div className="space-y-5">
+      <PageHeaderBroadcast
+        title={def.title}
+        subtitle="Case queue — subcategories, workflow and follow-up"
+      />
       <div>
         <Link
           href={`${basePath}/cases`}

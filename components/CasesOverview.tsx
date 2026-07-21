@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/client";
 import { Icon, IconName } from "./icons";
 import { StatTile } from "./charts";
+import { PageHeaderBroadcast } from "./PageHeader";
 
 interface ModuleSummary {
   module: string;
@@ -61,6 +62,10 @@ export default function CasesOverview({ basePath }: { basePath: string }) {
 
   return (
     <div className="space-y-6">
+      <PageHeaderBroadcast
+        title="Case modules"
+        subtitle="Service cases auto-created from survey triggers across the seven thematic areas"
+      />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">Case modules</h1>
