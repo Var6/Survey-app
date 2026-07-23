@@ -74,12 +74,16 @@ export default function SurveyForm({
   mobiliserCode,
   mobiliserName,
   projects = [],
+  homePath,
 }: {
+  /** "director" is the office mode — also used by PM and MIS. */
   role: "cm" | "director";
   settlementOptions: { code: string; label: string }[];
   mobiliserCode?: string;
   mobiliserName?: string;
   projects?: { id: string; name: string }[];
+  /** Where to go after submit (defaults by role). */
+  homePath?: string;
 }) {
   const router = useRouter();
 
@@ -448,7 +452,7 @@ export default function SurveyForm({
     };
     const label =
       (values.head_name as string) || (values.respondent_name as string) || "Household";
-    const home = role === "director" ? "/director/surveys" : "/cm/surveys";
+    const home = homePath ?? (role === "director" ? "/director/surveys" : "/cm/surveys");
 
     if (role === "cm" && typeof navigator !== "undefined" && !navigator.onLine) {
       enqueueSurvey(payload, label);

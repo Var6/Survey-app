@@ -72,10 +72,11 @@ export async function POST(req: Request) {
       return json({ error: "Select a valid settlement" }, 400);
     }
 
-    // Resolve the project.
+    // Resolve the project. Office roles (director / PM / MIS / accountant)
+    // pick a project or fall back to the first one; CMs use their own.
     const projects = await projectsCol();
     let projectId: ObjectId | null = user.projectId ?? null;
-    if (user.role === "director") {
+    if (user.role !== "cm") {
       if (body.projectId) {
         try {
           projectId = new ObjectId(body.projectId);

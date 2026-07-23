@@ -13,8 +13,8 @@ export default function PmHome() {
         title="Programme Manager dashboard"
         subtitle={`Current week · ${reportId}`}
         action={
-          <Link href="/pm/weekly" className={btnPrimary}>
-            Fill weekly report
+          <Link href="/pm/survey/new" className={btnPrimary}>
+            + New survey
           </Link>
         }
       />
