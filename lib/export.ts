@@ -133,6 +133,8 @@ export async function buildSurveyWorkbook(
     { header: "Frappe sync", key: "sync", width: 12 },
     { header: "Frappe ID", key: "frappe", width: 14 },
     { header: "Created", key: "created", width: 20 },
+    { header: "Interview start", key: "int_start", width: 14 },
+    { header: "Interview end", key: "int_end", width: 14 },
     ...fields.map((f) => ({
       header: f.label.en,
       key: f.name,
@@ -153,6 +155,8 @@ export async function buildSurveyWorkbook(
       sync: survey.sync?.status || "",
       frappe: survey.sync?.frappeId || "",
       created: fmtDate(survey.createdAt),
+      int_start: (d.interview_start_time as string) || "",
+      int_end: (d.interview_end_time as string) || "",
     };
     for (const f of fields) row[f.name] = enValue(f, d[f.name]);
     ws.addRow(row);

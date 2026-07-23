@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/client";
 import {
@@ -86,10 +86,12 @@ export default function SurveyForm({
   homePath?: string;
 }) {
   const router = useRouter();
+  /** Auto interview timestamp: captured when the form opens. */
+  const interviewStart = useRef(new Date());
 
   const initial = useMemo<Values>(() => {
     const v: Values = {
-      form_version: "V0.1",
+      form_version: "V1.0",
       survey_date: new Date().toISOString().slice(0, 10),
     };
     if (mobiliserName) v.mobiliser_name = mobiliserName;
@@ -437,13 +439,22 @@ export default function SurveyForm({
     const slice = (name: string, n: string) =>
       Array.from({ length: countOf(n) }, (_, i) => (rows[name] || [])[i] || {});
 
+    // Auto time-stamps for the interview (manual fields were removed).
+    const hhmm = (d: Date) =>
+      `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const stamped = {
+      ...values,
+      interview_start_time: hhmm(interviewStart.current),
+      interview_end_time: hhmm(new Date()),
+    };
+
     const payload = {
       settlementCode: values.settlement_name,
       mobiliserCode: values.mobiliser_code,
       projectId: role === "director" ? projectId : undefined,
-      formVersion: values.form_version || "V0.1",
+      formVersion: values.form_version || "V1.0",
       status: (values.form_complete_status as string) || "complete",
-      data: values,
+      data: stamped,
       members: slice("household_members", "hh_total_members"),
       children_0_3: slice("children_0_3", "num_children_0_3"),
       children_4_12: slice("children_4_12", "num_children_4_12"),
