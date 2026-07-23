@@ -12,7 +12,7 @@ export const SETTLEMENTS: Settlement[] = [
   { code: "buxa_ghat", label: "Buxa Ghat", hhPrefix: "BUX" },
   { code: "maha_dalit_tola", label: "Rajendar Nagar/Mahadalit Tola", hhPrefix: "MHD" },
   { code: "kalijaan_naya_tola", label: "Kalijaan Naya Tola", hhPrefix: "KAL" },
-  { code: "khatal_patti", label: "Sriram Tola", hhPrefix: "KHA" },
+  { code: "khatal_patti", label: "Sriram Tola", hhPrefix: "SRI" },
   { code: "dhangar_tola", label: "Anoop Nagar/Dhangar Tola", hhPrefix: "DHA" },
   { code: "ambedkar_nagar", label: "Raja Tola/Ambedkar Nagar", hhPrefix: "AMB" },
   { code: "damka_tola", label: "Hazirganj/Damka Tola", hhPrefix: "DAM" },
