@@ -77,6 +77,14 @@ const sectionA: Section = {
       required: true,
     },
     {
+      qid: "A6",
+      name: "ward_number",
+      label: { en: "Ward number", hi: "वार्ड नंबर" },
+      type: "integer",
+      required: true,
+      validation: { min: 1, max: 99 },
+    },
+    {
       qid: "A7",
       name: "gps_location",
       label: { en: "Location / GPS", hi: "लोकेशन / GPS" },
@@ -302,10 +310,12 @@ const sectionC: Section = {
 };
 
 /* ─── Section D: Household member roster (repeat) ───────────── */
-/** Member age helpers for the age-based education block. */
+/** Member age helpers for the age-based education block.
+ * Age is entered in decimal years (0.5 = 6 months); skip logic works on
+ * completed years, i.e. the floored value. */
 const mAge = (v: Record<string, unknown>): number | null => {
   const n = Number(v.member_age);
-  return Number.isFinite(n) && String(v.member_age).length > 0 ? n : null;
+  return Number.isFinite(n) && String(v.member_age).length > 0 ? Math.floor(n) : null;
 };
 const inAge = (v: Record<string, unknown>, lo: number, hi: number): boolean => {
   const a = mAge(v);
@@ -329,10 +339,11 @@ const rosterMember: RepeatGroup = {
     {
       qid: "D2",
       name: "member_age",
-      label: { en: "Age", hi: "उम्र (साल)" },
-      type: "integer",
+      label: { en: "Age (years)", hi: "उम्र (साल)" },
+      type: "decimal",
       required: true,
       validation: { min: 0, max: 110 },
+      note: "1 साल से छोटे बच्चे की उम्र दशमलव में लिखें — जैसे 0.5 = 6 महीने, 0.25 = 3 महीने, 0.08 = 1 महीना",
     },
     {
       qid: "D3",

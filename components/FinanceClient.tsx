@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, formatMoney, formatDate } from "@/lib/client";
+import { uploadImage } from "@/lib/image";
 import { Card, Empty, Badge, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import RequisitionsClient from "@/components/RequisitionsClient";
 import ProjectsClient from "@/components/ProjectsClient";
@@ -177,14 +178,8 @@ function Expenses({ projects }: { projects: Project[] }) {
 
   async function upload(file: File) {
     setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("prefix", "receipts");
     try {
-      const res = await apiFetch<{ key: string; url: string }>("/api/uploads", {
-        method: "POST",
-        body: fd,
-      });
+      const res = await uploadImage(file, "receipts");
       setReceipts((r) => [...r, { key: res.key, url: res.url }]);
     } catch (e) {
       setErr((e as Error).message);

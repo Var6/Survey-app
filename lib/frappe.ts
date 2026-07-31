@@ -129,7 +129,10 @@ export function mapSurveyToFrappe(survey: SurveyDoc): Record<string, unknown> {
     date: (d.survey_date as string) || null,
     household_head_name: (d.head_name as string) || "",
     total_family_members: toInt(d.hh_total_members) ?? 0,
-    address: (d.household_landmark as string) || area,
+    address:
+      [d.household_landmark, d.ward_number ? `Ward ${d.ward_number}` : ""]
+        .filter(Boolean)
+        .join(", ") || area,
     area,
     household_income: incomeFromRange(d.monthly_income_range as string | undefined),
   };

@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   try {
     await requireUser();
     if (!r2Configured()) {
-      return json({ error: "Image storage (R2) is not configured in .env.local" }, 503);
+      return json({ error: "Image storage (R2) is not configured (check R2_* env vars)" }, 503);
     }
 
     const form = await req.formData();

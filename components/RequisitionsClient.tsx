@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, formatMoney, formatDate } from "@/lib/client";
+import { uploadImage } from "@/lib/image";
 import { Card, Empty, Badge, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 
 interface Requisition {
@@ -64,14 +65,8 @@ export default function RequisitionsClient({ scope }: { scope: "director" | "cm"
   async function uploadReceipt(file: File) {
     setUploading(true);
     setErr(null);
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("prefix", "receipts");
     try {
-      const res = await apiFetch<{ key: string; url: string }>("/api/uploads", {
-        method: "POST",
-        body: fd,
-      });
+      const res = await uploadImage(file, "receipts");
       setReceipts((r) => [...r, { key: res.key, url: res.url }]);
     } catch (e) {
       setErr((e as Error).message);

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, formatMoney, formatDate } from "@/lib/client";
+import { compressImage } from "@/lib/image";
 import type { PublicUser } from "@/lib/serialize";
 import { Card, Badge, inputClass, labelClass, btnPrimary } from "@/components/ui";
 import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
@@ -66,7 +67,7 @@ export default function ProfileClient() {
     setErr(null);
     setMsg(null);
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", await compressImage(file));
     try {
       const { user } = await apiFetch<{ user: PublicUser }>(
         "/api/profile/avatar",

@@ -13,6 +13,7 @@ import { inputClass, labelClass, btnPrimary } from "@/components/ui";
 
 const L = {
   hi: {
+    date: "रिपोर्ट की तारीख़ / Report date",
     where: "आज आपने कहाँ काम किया? / Where did you work today?",
     work: "आपने व्यक्तिगत रूप से क्या किया? / What did you personally do?",
     completed: "आज क्या कार्य पूरे हुए? (अधिकतम 3 उपलब्धियाँ, कम से कम 50 शब्द)",
@@ -26,8 +27,14 @@ const L = {
     required: (label: string) => `"${label}" ज़रूरी है।`,
     done: "रिपोर्ट जमा हो गई ✓",
     words: "शब्द",
+    onLeave: "इस दिन मैं छुट्टी पर था/थी",
+    onLeaveHint: "छुट्टी दर्ज करने पर दैनिक रिपोर्ट भरने की ज़रूरत नहीं है।",
+    submitLeave: "छुट्टी दर्ज करें / Mark leave",
+    leaveDone: "छुट्टी दर्ज हो गई ✓",
+    futureDate: "आने वाली तारीख़ की रिपोर्ट नहीं भर सकते।",
   },
   en: {
+    date: "Report date",
     where: "Where did you work today?",
     work: "What did you personally do?",
     completed: "What was completed today? (up to 3 achievements, min. 50 words)",
@@ -41,6 +48,11 @@ const L = {
     required: (label: string) => `"${label}" is required.`,
     done: "Report submitted ✓",
     words: "words",
+    onLeave: "I was on leave this day",
+    onLeaveHint: "Marking leave means no daily report is needed for this date.",
+    submitLeave: "Mark leave",
+    leaveDone: "Leave recorded ✓",
+    futureDate: "Cannot submit a report for a future date.",
   },
 };
 
@@ -54,6 +66,9 @@ export default function DailyUpdateForm({
   onDone?: () => void;
 }) {
   const t = L[lang];
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const [reportDate, setReportDate] = useState(todayIso);
+  const [onLeave, setOnLeave] = useState(false);
   const [settlements, setSettlements] = useState<string[]>([]);
   const [workDone, setWorkDone] = useState("");
   const [completed, setCompleted] = useState("");
@@ -63,12 +78,6 @@ export default function DailyUpdateForm({
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState(false);
 
-  const today = new Date().toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-
   const toggle = (code: string) =>
     setSettlements((s) =>
       s.includes(code) ? s.filter((x) => x !== code) : [...s, code]
@@ -76,13 +85,16 @@ export default function DailyUpdateForm({
 
   async function submit() {
     setErr(null);
-    if (settlements.length === 0) return setErr(t.needSettlement);
-    if (!workDone.trim()) return setErr(t.required(t.work));
-    const cw = wordCount(completed);
-    if (cw < 50) return setErr(t.needWords(t.completed, cw));
-    if (!issues.trim()) return setErr(t.required(t.issues));
-    const tw = wordCount(tomorrow);
-    if (tw < 50) return setErr(t.needWords(t.tomorrow, tw));
+    if (!reportDate || reportDate > todayIso) return setErr(t.futureDate);
+    if (!onLeave) {
+      if (settlements.length === 0) return setErr(t.needSettlement);
+      if (!workDone.trim()) return setErr(t.required(t.work));
+      const cw = wordCount(completed);
+      if (cw < 50) return setErr(t.needWords(t.completed, cw));
+      if (!issues.trim()) return setErr(t.required(t.issues));
+      const tw = wordCount(tomorrow);
+      if (tw < 50) return setErr(t.needWords(t.tomorrow, tw));
+    }
 
     setBusy(true);
     try {
@@ -90,14 +102,16 @@ export default function DailyUpdateForm({
         method: "POST",
         body: JSON.stringify({
           period: "daily",
-          periodDate: new Date().toISOString().slice(0, 10),
-          data: {
-            settlements_worked: settlements,
-            work_done: workDone.trim(),
-            completed_today: completed.trim(),
-            issues_risks: issues.trim(),
-            tomorrow_priorities: tomorrow.trim(),
-          },
+          periodDate: reportDate,
+          data: onLeave
+            ? { on_leave: true }
+            : {
+                settlements_worked: settlements,
+                work_done: workDone.trim(),
+                completed_today: completed.trim(),
+                issues_risks: issues.trim(),
+                tomorrow_priorities: tomorrow.trim(),
+              },
         }),
       });
       setOk(true);
@@ -112,7 +126,7 @@ export default function DailyUpdateForm({
   if (ok) {
     return (
       <p className="rounded-xl bg-teal-50 px-4 py-6 text-center text-sm font-semibold text-teal-800 dark:bg-teal-950/30 dark:text-teal-300">
-        {t.done}
+        {onLeave ? t.leaveDone : t.done}
       </p>
     );
   }
@@ -125,11 +139,40 @@ export default function DailyUpdateForm({
 
   return (
     <div className="space-y-4">
-      {/* Auto header */}
-      <div className="rounded-lg bg-zinc-100 px-3 py-2 text-xs text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-        {today} · {lang === "hi" ? "स्थिति: ड्राफ्ट" : "Status: draft"}
+      {/* Report date — defaults to today; a past date can be picked to backfill. */}
+      <div>
+        <label className={labelClass}>
+          {t.date} <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="date"
+          className={inputClass}
+          value={reportDate}
+          max={todayIso}
+          onChange={(e) => setReportDate(e.target.value)}
+        />
       </div>
 
+      {/* On leave — skips the daily report for the chosen date. */}
+      <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
+        <input
+          type="checkbox"
+          className="mt-0.5"
+          checked={onLeave}
+          onChange={(e) => setOnLeave(e.target.checked)}
+        />
+        <span>
+          <span className="block text-sm font-semibold text-amber-900 dark:text-amber-200">
+            {t.onLeave}
+          </span>
+          <span className="block text-xs text-amber-700 dark:text-amber-300/80">
+            {t.onLeaveHint}
+          </span>
+        </span>
+      </label>
+
+      {!onLeave && (
+      <>
       <div>
         <label className={labelClass}>
           {t.where} <span className="text-red-500">*</span>
@@ -200,10 +243,12 @@ export default function DailyUpdateForm({
         />
         {wordsHint(tomorrow)}
       </div>
+      </>
+      )}
 
       {err && <p className="text-sm text-red-600">{err}</p>}
       <button className={`${btnPrimary} w-full`} onClick={submit} disabled={busy}>
-        {busy ? t.saving : t.submit}
+        {busy ? t.saving : onLeave ? t.submitLeave : t.submit}
       </button>
     </div>
   );

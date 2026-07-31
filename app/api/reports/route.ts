@@ -84,12 +84,37 @@ export async function POST(req: Request) {
     }
 
     const now = new Date();
+    const periodDate = body.periodDate ? new Date(body.periodDate) : now;
+    if (Number.isNaN(periodDate.getTime())) {
+      return json({ error: "Invalid periodDate" }, 400);
+    }
+
+    const reports = await reportsCol();
+
+    // One daily report per person per date (reports can be back-dated).
+    if (body.period === "daily") {
+      const dayStart = new Date(periodDate);
+      dayStart.setUTCHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+      const dup = await reports.findOne({
+        mobiliserId: user._id,
+        period: "daily",
+        periodDate: { $gte: dayStart, $lt: dayEnd },
+      });
+      if (dup) {
+        return json(
+          { error: "इस तारीख़ की रिपोर्ट पहले से जमा है / A report for this date already exists" },
+          409
+        );
+      }
+    }
+
     const doc: ReportDoc = {
       projectId: user.projectId,
       mobiliserId: user._id!,
       authorRole: user.role,
       period: body.period as ReportPeriod,
-      periodDate: body.periodDate ? new Date(body.periodDate) : now,
+      periodDate,
       metrics,
       data:
         body.data && typeof body.data === "object" ? body.data : undefined,
@@ -98,7 +123,6 @@ export async function POST(req: Request) {
       updatedAt: now,
     };
 
-    const reports = await reportsCol();
     const res = await reports.insertOne(doc);
     return json(
       { report: publicReport({ ...doc, _id: res.insertedId }, { mobiliserName: user.name }) },

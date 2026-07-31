@@ -26,6 +26,21 @@ function cleanInt(field: Field, raw: string): number | "" {
   if (max !== undefined && n > max) n = max;
   return n;
 }
+/** Decimal variant: digits + one dot, max 2 decimal places; partial input stays a string. */
+function cleanDecimal(field: Field, raw: string): number | string {
+  let s = raw.replace(/[^\d.]/g, "");
+  const dot = s.indexOf(".");
+  if (dot !== -1) {
+    s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+  }
+  if (s === "" || s === ".") return "";
+  if (s.endsWith(".")) return s;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return "";
+  const max = field.validation?.max;
+  if (max !== undefined && n > max) return max;
+  return String(n) === s ? n : s;
+}
 
 export default function ReportForm({ onDone }: { onDone: () => void }) {
   const [values, setValues] = useState<Values>({
@@ -74,15 +89,21 @@ export default function ReportForm({ onDone }: { onDone: () => void }) {
     } else if (field.type === "textarea") {
       control = <textarea className={inputClass} rows={2} value={(value as string) || ""} onChange={(e) => setValue(field.name, e.target.value)} />;
     } else if (field.type === "integer" || field.type === "decimal") {
+      const isDecimal = field.type === "decimal";
       const strVal = value === "" || value === undefined || value === null ? "" : String(value);
       control = (
         <input
           className={inputClass}
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          inputMode={isDecimal ? "decimal" : "numeric"}
+          pattern={isDecimal ? "[0-9.]*" : "[0-9]*"}
           value={strVal}
-          onChange={(e) => setValue(field.name, cleanInt(field, e.target.value))}
+          onChange={(e) =>
+            setValue(
+              field.name,
+              isDecimal ? cleanDecimal(field, e.target.value) : cleanInt(field, e.target.value)
+            )
+          }
         />
       );
     } else {

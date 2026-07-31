@@ -62,6 +62,23 @@ function cleanInt(field: Field, raw: string, ctx?: Record<string, unknown>): num
   return n;
 }
 
+/** Clean a decimal input: digits + one dot, max 2 decimal places, clamped to max.
+ * Partial input ("0.", "0.0") stays a string so the next digit can be typed. */
+function cleanDecimal(field: Field, raw: string): number | string {
+  let s = raw.replace(/[^\d.]/g, "");
+  const dot = s.indexOf(".");
+  if (dot !== -1) {
+    s = s.slice(0, dot + 1) + s.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+  }
+  if (s === "" || s === ".") return "";
+  if (s.endsWith(".")) return s;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return "";
+  const max = field.validation?.max;
+  if (max !== undefined && n > max) return max;
+  return String(n) === s ? n : s;
+}
+
 function sectionHasVisibleItems(s: Section, values: Values): boolean {
   return s.items.some((it) =>
     isRepeat(it) ? evalCondition(it.showWhen, values) : isFieldVisible(it, values)
@@ -257,17 +274,24 @@ export default function SurveyForm({
         </div>
       );
     } else if (field.type === "integer" || field.type === "decimal") {
-      // Strict numeric: only digits can be entered.
+      // Strict numeric: integers allow only digits; decimals also allow one dot.
+      const isDecimal = field.type === "decimal";
       const strVal =
         value === "" || value === undefined || value === null ? "" : String(value);
       control = (
         <input
           className={inputClass}
           type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
+          inputMode={isDecimal ? "decimal" : "numeric"}
+          pattern={isDecimal ? "[0-9.]*" : "[0-9]*"}
           value={strVal}
-          onChange={(e) => onChange(cleanInt(field, e.target.value, ctx))}
+          onChange={(e) =>
+            onChange(
+              isDecimal
+                ? cleanDecimal(field, e.target.value)
+                : cleanInt(field, e.target.value, ctx)
+            )
+          }
         />
       );
     } else if (field.type === "phone") {

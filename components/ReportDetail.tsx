@@ -22,6 +22,13 @@ function displayValue(field: Field, val: unknown): string | null {
 /** Read-only render of a submitted daily report's structured data. */
 export default function ReportDetail({ data }: { data: Record<string, unknown> }) {
   const rendered = new Set<string>();
+  if (data.on_leave === true) {
+    return (
+      <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+        इस दिन छुट्टी पर थे — कोई दैनिक रिपोर्ट नहीं। / On leave this day — no daily report.
+      </p>
+    );
+  }
   return (
     <div className="mt-3 space-y-3">
       {ALL_SECTIONS.map((section) => {

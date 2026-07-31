@@ -117,6 +117,11 @@ export default function ReportsClient({ scope }: { scope: "director" | "cm" }) {
                     )}
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    {r.data?.on_leave === true && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                        छुट्टी / On leave
+                      </span>
+                    )}
                     {status && (
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.cls}`}>
                         {status.label}
