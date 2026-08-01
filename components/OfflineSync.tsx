@@ -83,7 +83,7 @@ export default function OfflineSync() {
 
   return (
     <div
-      className={`fixed bottom-20 right-3 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-md ${
+      className={`fixed bottom-20 right-3 z-40 flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium shadow-md print:hidden ${
         online
           ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/60 dark:text-amber-300"
           : "border-zinc-300 bg-zinc-800 text-zinc-100 dark:border-zinc-700"

@@ -56,6 +56,71 @@ export async function surveysCollection() {
   return surveysCol();
 }
 
+export interface SurveyDetail {
+  id: string;
+  householdId: string;
+  settlementCode: string;
+  mobiliserName?: string;
+  mobiliserCode?: string;
+  status: string;
+  formVersion: string;
+  data: Record<string, unknown>;
+  members: Record<string, unknown>[];
+  children_0_3: Record<string, unknown>[];
+  children_4_12: Record<string, unknown>[];
+  youth_13_24: Record<string, unknown>[];
+  gps: { lat: number; lng: number; accuracy?: number } | null;
+  images: { key: string; url: string; kind?: string }[];
+  sync: { status: string; frappeId?: string };
+  submittedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Load one survey with everything needed for the detail / PDF page.
+ * CMs can only see their own surveys; office roles see any.
+ */
+export async function loadSurveyDetail(
+  id: string,
+  user: UserDoc
+): Promise<SurveyDetail | null> {
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return null;
+  }
+  const surveys = await surveysCol();
+  const survey = await surveys.findOne({ _id });
+  if (!survey) return null;
+  if (user.role === "cm" && String(survey.mobiliserId) !== String(user._id)) {
+    return null;
+  }
+  const users = await usersCol();
+  const mobiliser = await users.findOne({ _id: survey.mobiliserId });
+  return {
+    id: String(survey._id),
+    householdId: survey.householdId,
+    settlementCode: survey.settlementCode,
+    mobiliserName: mobiliser?.name,
+    mobiliserCode: survey.mobiliserCode,
+    status: survey.status,
+    formVersion: survey.formVersion,
+    data: survey.data || {},
+    members: survey.members || [],
+    children_0_3: survey.children_0_3 || [],
+    children_4_12: survey.children_4_12 || [],
+    youth_13_24: survey.youth_13_24 || [],
+    gps: survey.gps ?? null,
+    images: survey.images || [],
+    sync: { status: survey.sync?.status || "pending", frappeId: survey.sync?.frappeId },
+    submittedAt: survey.submittedAt,
+    createdAt: survey.createdAt,
+    updatedAt: survey.updatedAt,
+  };
+}
+
 export interface ResumableSurvey {
   surveyId: string;
   householdId: string;

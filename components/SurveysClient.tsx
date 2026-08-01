@@ -149,7 +149,7 @@ export default function SurveysClient({
           {rows.map((r) => (
             <Card key={r.id}>
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <Link href={`${pathname}/${r.id}`} className="min-w-0 flex-1">
                   <p className="font-semibold text-zinc-900 dark:text-zinc-50">
                     {r.headName || "—"}{" "}
                     <span className="text-xs font-normal text-zinc-400">
@@ -162,9 +162,9 @@ export default function SurveysClient({
                   </p>
                   <p className="mt-0.5 text-xs text-zinc-400">
                     {isDirector && r.mobiliserName ? `${r.mobiliserName} · ` : ""}
-                    {formatDate(r.createdAt)}
+                    {formatDate(r.createdAt)} · <span className="text-teal-600 dark:text-teal-400">देखें / View</span>
                   </p>
-                </div>
+                </Link>
                 <div className="flex flex-col items-end gap-1.5">
                   <Badge value={r.status} />
                   <Badge value={r.sync.status} />

@@ -27,3 +27,23 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Print (Save as PDF): always light, dark-theme colours neutralised so text
+   stays black on white regardless of the on-screen theme. */
+@media print {
+  :root,
+  .dark {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+  .dark *,
+  .dark {
+    background-color: transparent !important;
+    color: #171717 !important;
+    border-color: #d4d4d8 !important;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+}

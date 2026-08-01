@@ -12,7 +12,7 @@ export default function AppHeader({
   avatarUrl?: string | null;
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur dark:border-zinc-800 dark:bg-black/80">
+    <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur print:hidden dark:border-zinc-800 dark:bg-black/80">
       <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 overflow-hidden rounded-lg bg-zinc-900">

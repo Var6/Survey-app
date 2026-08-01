@@ -17,7 +17,7 @@ export default function RoleNav({
 }) {
   const path = usePathname();
   return (
-    <nav className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-black">
+    <nav className="border-b border-zinc-200 bg-white print:hidden dark:border-zinc-800 dark:bg-black">
       <div className="mx-auto flex max-w-3xl gap-1 overflow-x-auto px-2 py-2">
         {items.map((it) => {
           const active =
