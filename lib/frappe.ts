@@ -209,6 +209,11 @@ export async function syncSurveyById(
   const survey = await surveys.findOne({ _id });
   if (!survey) throw new Error("Survey not found");
 
+  // Incomplete surveys never leave Mongo — sync only after completion.
+  if (survey.status !== "complete") {
+    return survey.sync ?? { status: "pending", attempts: 0 };
+  }
+
   const result = await pushSurveyToFrappe(survey);
   const now = new Date();
   const attempts = (survey.sync?.attempts || 0) + 1;

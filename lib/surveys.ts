@@ -55,3 +55,46 @@ export async function attachMobiliserNames(
 export async function surveysCollection() {
   return surveysCol();
 }
+
+export interface ResumableSurvey {
+  surveyId: string;
+  householdId: string;
+  values: Record<string, unknown>;
+  rows: Record<string, Record<string, unknown>[]>;
+  projectId?: string;
+}
+
+/**
+ * Load an incomplete survey so the form can be re-opened and re-filled.
+ * Returns null when the survey is missing, already complete, or the user
+ * may not edit it (CMs can only resume their own surveys).
+ */
+export async function loadResumableSurvey(
+  id: string,
+  user: UserDoc
+): Promise<ResumableSurvey | null> {
+  let _id: ObjectId;
+  try {
+    _id = new ObjectId(id);
+  } catch {
+    return null;
+  }
+  const surveys = await surveysCol();
+  const survey = await surveys.findOne({ _id });
+  if (!survey || survey.status === "complete") return null;
+  if (user.role === "cm" && String(survey.mobiliserId) !== String(user._id)) {
+    return null;
+  }
+  return {
+    surveyId: String(survey._id),
+    householdId: survey.householdId,
+    values: survey.data || {},
+    rows: {
+      household_members: survey.members || [],
+      children_0_3: survey.children_0_3 || [],
+      children_4_12: survey.children_4_12 || [],
+      youth_13_24: survey.youth_13_24 || [],
+    },
+    projectId: survey.projectId ? String(survey.projectId) : undefined,
+  };
+}

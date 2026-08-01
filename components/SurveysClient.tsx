@@ -1,9 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { apiFetch, formatDate } from "@/lib/client";
 import { Card, Empty, Badge, inputClass, btnGhost } from "@/components/ui";
 import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+
+/** Path of the survey form for the area the list is shown in. */
+function formPath(pathname: string): string {
+  if (pathname.startsWith("/director")) return "/director/surveys/new";
+  if (pathname.startsWith("/pm")) return "/pm/survey/new";
+  if (pathname.startsWith("/mis")) return "/mis/survey/new";
+  return "/cm/survey/new";
+}
 
 interface SurveyRow {
   id: string;
@@ -28,6 +38,7 @@ export default function SurveysClient({
 }) {
   const isDirector = scope === "director" || scope === "mis";
   const canExport = scope === "director";
+  const pathname = usePathname();
   const [rows, setRows] = useState<SurveyRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -157,6 +168,14 @@ export default function SurveysClient({
                 <div className="flex flex-col items-end gap-1.5">
                   <Badge value={r.status} />
                   <Badge value={r.sync.status} />
+                  {r.status !== "complete" && (
+                    <Link
+                      href={`${formPath(pathname)}?resume=${r.id}`}
+                      className="rounded px-1.5 py-0.5 text-xs font-medium text-teal-600 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/30"
+                    >
+                      {scope === "cm" ? "जारी रखें" : "Resume"}
+                    </Link>
+                  )}
                   {scope === "director" && (
                     <button
                       className="rounded px-1.5 py-0.5 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"

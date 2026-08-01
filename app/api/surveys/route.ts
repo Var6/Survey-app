@@ -137,8 +137,9 @@ export async function POST(req: Request) {
     const surveys = await surveysCol();
     const res = await surveys.insertOne(doc);
 
-    // Best-effort, non-blocking push to Frappe (the mobiliser is never blocked).
-    if (frappeConfigured()) {
+    // Best-effort, non-blocking push to Frappe (the mobiliser is never
+    // blocked). Incomplete surveys stay local until they are marked complete.
+    if (frappeConfigured() && doc.status === "complete") {
       void syncSurveyById(res.insertedId).catch(() => {});
     }
 

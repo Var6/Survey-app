@@ -1,7 +1,10 @@
+import { redirect } from "next/navigation";
+import { currentUser } from "@/lib/auth";
 import { PageTitle } from "@/components/ui";
 import SurveyForm from "@/components/SurveyForm";
 import { projectsCol } from "@/lib/models";
 import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+import { loadResumableSurvey } from "@/lib/surveys";
 
 export const metadata = { title: "New survey · Programme Manager" };
 
@@ -15,7 +18,17 @@ async function getProjects() {
   }
 }
 
-export default async function PmNewSurveyPage() {
+export default async function PmNewSurveyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ resume?: string }>;
+}) {
+  const user = await currentUser();
+  if (!user) redirect("/login");
+
+  const { resume: resumeId } = await searchParams;
+  const resume = resumeId ? await loadResumableSurvey(resumeId, user) : null;
+
   const projects = await getProjects();
   const settlementOptions = SETTLEMENTS.map((s) => ({
     code: s.code,
@@ -25,8 +38,12 @@ export default async function PmNewSurveyPage() {
   return (
     <div>
       <PageTitle
-        title="New survey"
-        subtitle="Record a household baseline survey"
+        title={resume ? "Resume survey" : "New survey"}
+        subtitle={
+          resume
+            ? `Continue filling ${resume.householdId}`
+            : "Record a household baseline survey"
+        }
         back={{ href: "/pm/surveys" }}
       />
       <SurveyForm
@@ -34,6 +51,7 @@ export default async function PmNewSurveyPage() {
         settlementOptions={settlementOptions}
         projects={projects}
         homePath="/pm/surveys"
+        resume={resume ?? undefined}
       />
     </div>
   );

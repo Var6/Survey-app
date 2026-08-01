@@ -92,6 +92,7 @@ export default function SurveyForm({
   mobiliserName,
   projects = [],
   homePath,
+  resume,
 }: {
   /** "director" is the office mode — also used by PM and MIS. */
   role: "cm" | "director";
@@ -101,12 +102,21 @@ export default function SurveyForm({
   projects?: { id: string; name: string }[];
   /** Where to go after submit (defaults by role). */
   homePath?: string;
+  /** Re-fill an incomplete survey: prefilled state + PATCH to the same record. */
+  resume?: {
+    surveyId: string;
+    householdId: string;
+    values: Values;
+    rows: Rows;
+    projectId?: string;
+  };
 }) {
   const router = useRouter();
   /** Auto interview timestamp: captured when the form opens. */
   const interviewStart = useRef(new Date());
 
   const initial = useMemo<Values>(() => {
+    if (resume) return { ...resume.values };
     const v: Values = {
       form_version: "V1.0",
       survey_date: new Date().toISOString().slice(0, 10),
@@ -115,11 +125,11 @@ export default function SurveyForm({
     if (mobiliserCode) v.mobiliser_code = mobiliserCode;
     if (settlementOptions.length === 1) v.settlement_name = settlementOptions[0].code;
     return v;
-  }, [mobiliserName, mobiliserCode, settlementOptions]);
+  }, [resume, mobiliserName, mobiliserCode, settlementOptions]);
 
   const [values, setValues] = useState<Values>(initial);
-  const [rows, setRows] = useState<Rows>({});
-  const [projectId, setProjectId] = useState(projects[0]?.id || "");
+  const [rows, setRows] = useState<Rows>(resume?.rows || {});
+  const [projectId, setProjectId] = useState(resume?.projectId || projects[0]?.id || "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [topError, setTopError] = useState<string | null>(null);
@@ -464,11 +474,13 @@ export default function SurveyForm({
       Array.from({ length: countOf(n) }, (_, i) => (rows[name] || [])[i] || {});
 
     // Auto time-stamps for the interview (manual fields were removed).
+    // A resumed survey keeps its original start time.
     const hhmm = (d: Date) =>
       `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     const stamped = {
       ...values,
-      interview_start_time: hhmm(interviewStart.current),
+      interview_start_time:
+        (resume && (values.interview_start_time as string)) || hhmm(interviewStart.current),
       interview_end_time: hhmm(new Date()),
     };
 
@@ -489,7 +501,11 @@ export default function SurveyForm({
       (values.head_name as string) || (values.respondent_name as string) || "Household";
     const home = homePath ?? (role === "director" ? "/director/surveys" : "/cm/surveys");
 
-    if (role === "cm" && typeof navigator !== "undefined" && !navigator.onLine) {
+    // Re-filling updates the same record — the offline queue would create a
+    // duplicate household, so resuming needs a connection.
+    const canQueue = role === "cm" && !resume;
+
+    if (canQueue && typeof navigator !== "undefined" && !navigator.onLine) {
       enqueueSurvey(payload, label);
       router.replace(home);
       router.refresh();
@@ -498,14 +514,23 @@ export default function SurveyForm({
 
     setSubmitting(true);
     try {
-      await apiFetch("/api/surveys", { method: "POST", body: JSON.stringify(payload) });
+      if (resume) {
+        await apiFetch(`/api/surveys/${resume.surveyId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiFetch("/api/surveys", { method: "POST", body: JSON.stringify(payload) });
+      }
       router.replace(home);
       router.refresh();
     } catch (err) {
-      if (role === "cm" && err instanceof TypeError) {
+      if (canQueue && err instanceof TypeError) {
         enqueueSurvey(payload, label);
         router.replace(home);
         router.refresh();
+      } else if (resume && err instanceof TypeError) {
+        setTopError("इंटरनेट नहीं है — अधूरा सर्वे जारी रखने के लिए इंटरनेट ज़रूरी है।");
       } else {
         setTopError((err as Error).message);
       }
@@ -536,6 +561,12 @@ export default function SurveyForm({
           {labelText(section.title)}
         </h2>
       </div>
+
+      {resume && (
+        <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          अधूरा सर्वे जारी है — घर ID: <b>{resume.householdId}</b>
+        </p>
+      )}
 
       {topError && (
         <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
