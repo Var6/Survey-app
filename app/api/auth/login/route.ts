@@ -4,9 +4,16 @@ import { verifyPassword } from "@/lib/auth";
 import { createSessionToken, setSessionCookie } from "@/lib/session";
 import { publicUser } from "@/lib/serialize";
 
+export const runtime = "nodejs";
+/** Keep the ceiling above a cold Atlas connect so a slow login still returns
+ *  JSON, instead of the platform killing it and serving an HTML error page. */
+export const maxDuration = 30;
+
 export async function POST(req: Request) {
   try {
-    await ensureIndexes();
+    // Index creation (~28 round-trips) must never sit in front of a login;
+    // it runs in the background and other routes ensure it too.
+    void ensureIndexes().catch(() => {});
     const { email, password } = await readJson<{
       email?: string;
       password?: string;

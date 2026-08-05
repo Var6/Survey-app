@@ -26,7 +26,15 @@ function connect(): Promise<MongoClient> {
     );
   }
 
-  const options = { serverSelectionTimeoutMS: 15000 };
+  // Must stay comfortably under the route maxDuration: if Atlas is
+  // unreachable we want a JSON error the client can retry, not a function
+  // timeout that returns an HTML error page.
+  const options = {
+    serverSelectionTimeoutMS: 8000,
+    connectTimeoutMS: 8000,
+    retryReads: true,
+    retryWrites: true,
+  };
 
   if (process.env.NODE_ENV !== "production") {
     // Reuse the promise across HMR reloads in development.

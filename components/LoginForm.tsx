@@ -3,47 +3,107 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+/** Mobile networks in the field drop single requests often — retry quietly. */
+const ATTEMPTS = 3;
+const TIMEOUT_MS = 20000;
+
+function homeFor(role: string): string {
+  if (role === "director") return "/director";
+  if (role === "accountant") return "/finance";
+  if (role === "programme_manager") return "/pm";
+  if (role === "mis") return "/mis";
+  return "/cm";
+}
+
 export default function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Login failed");
-        return;
+
+    // Reason the last attempt failed — only shown once all retries are spent.
+    let problem = "Login failed";
+
+    for (let n = 1; n <= ATTEMPTS; n++) {
+      setAttempt(n);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal,
+          cache: "no-store",
+        });
+
+        // Read as text first: a platform error page (gateway timeout, crash)
+        // is HTML, and blindly calling res.json() on it throws — which is what
+        // used to surface as a bogus "Network error".
+        const raw = await res.text();
+        let data: { user?: { role?: string }; error?: string } | null = null;
+        try {
+          data = raw ? JSON.parse(raw) : null;
+        } catch {
+          data = null;
+        }
+
+        if (res.ok && data?.user?.role) {
+          const dest =
+            next && next.startsWith("/") && next !== "/"
+              ? next
+              : homeFor(data.user.role);
+          router.replace(dest);
+          router.refresh();
+          return;
+        }
+
+        if (data?.error && res.status < 500) {
+          // A real answer from our API (wrong password, inactive account).
+          setError(data.error);
+          setLoading(false);
+          setAttempt(0);
+          return;
+        }
+
+        // 5xx, or a non-JSON body — the server/platform is struggling. Retry.
+        problem = data?.error
+          ? `Server error (${res.status}): ${data.error}`
+          : `Server did not respond properly (HTTP ${res.status})`;
+        console.error("[login] bad response", res.status, raw.slice(0, 200));
+      } catch (err) {
+        const name = (err as Error)?.name;
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          setError("इंटरनेट बंद है — कनेक्शन जाँचकर दोबारा कोशिश करें।");
+          setLoading(false);
+          setAttempt(0);
+          return;
+        }
+        problem =
+          name === "AbortError"
+            ? "सर्वर ने समय पर जवाब नहीं दिया (timeout)"
+            : "नेटवर्क बीच में टूट गया";
+        console.error("[login] request failed", err);
+      } finally {
+        clearTimeout(timer);
       }
-      const role = data.user.role as string;
-      const home =
-        role === "director"
-          ? "/director"
-          : role === "accountant"
-          ? "/finance"
-          : role === "programme_manager"
-          ? "/pm"
-          : role === "mis"
-          ? "/mis"
-          : "/cm";
-      const dest = next && next.startsWith("/") && next !== "/" ? next : home;
-      router.replace(dest);
-      router.refresh();
-    } catch {
-      setError("Network error — please try again");
-    } finally {
-      setLoading(false);
+
+      // Brief backoff before the next try.
+      if (n < ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 500 * n));
+      }
     }
+
+    setError(`${problem} — ${ATTEMPTS} बार कोशिश की। थोड़ी देर बाद फिर करें।`);
+    setLoading(false);
+    setAttempt(0);
   }
 
   return (
@@ -88,7 +148,11 @@ export default function LoginForm({ next }: { next?: string }) {
         disabled={loading}
         className="w-full rounded-lg bg-teal-700 px-4 py-2.5 text-base font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Signing in…" : "Sign in"}
+        {loading
+          ? attempt > 1
+            ? `दोबारा कोशिश… (${attempt}/${ATTEMPTS})`
+            : "Signing in…"
+          : "Sign in"}
       </button>
     </form>
   );
