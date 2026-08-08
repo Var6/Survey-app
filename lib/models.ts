@@ -286,11 +286,20 @@ export interface CaseDoc {
   updatedAt: Date;
 }
 
-/** Programme Manager monthly report (PMM module). */
+/**
+ * Monthly report — one document per author per month.
+ * Three variants share this shape (see lib/monthly/variants.ts):
+ *   PMM-YYYY-MM        Programme Manager   → reviewed by the Director
+ *   CMM-YYYY-MM-<code> Community Mobiliser → reviewed by the Programme Manager
+ *   MISM-YYYY-MM       Supervisor cum MIS  → reviewed by the Programme Manager
+ */
 export interface MonthlyReportDoc {
   _id?: ObjectId;
-  reportId: string; // PMM-YYYY-MM
+  reportId: string;
+  /** The report's author. Legacy field name — always the author's user id. */
   programmeManagerId: ObjectId;
+  /** Missing on legacy documents, which are all Programme Manager reports. */
+  authorRole?: Role;
   pmName?: string;
   monthStart: Date;
   monthEnd: Date;

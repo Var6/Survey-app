@@ -50,6 +50,73 @@ export const MONTHLY_SECTIONS: Section[] = [
     ],
   },
   {
+    id: "B",
+    title: { en: "Household baseline & profiling progress" },
+    items: [
+      {
+        qid: "baseline_progress",
+        name: "baseline_progress",
+        label: {
+          en: "Households profiled this month (verify against the auto figure above) and the cumulative total",
+        },
+        type: "textarea",
+      },
+      {
+        qid: "baseline_by_settlement",
+        name: "baseline_by_settlement",
+        label: {
+          en: "Settlements where the baseline is complete / ongoing / not yet started",
+        },
+        type: "textarea",
+        required: true,
+      },
+      {
+        qid: "vulnerable_identified",
+        name: "vulnerable_identified",
+        label: {
+          en: "Vulnerable households identified this month (pregnant women, elderly, persons with disability, undocumented families, serious health needs)",
+        },
+        type: "textarea",
+      },
+    ],
+  },
+  {
+    id: "C",
+    title: { en: "Children's engagement & school enrolment" },
+    items: [
+      {
+        qid: "oos_identified",
+        name: "oos_identified",
+        label: {
+          en: "Out-of-school children identified this month (and cumulative, against the ~500 target)",
+        },
+        type: "textarea",
+        required: true,
+      },
+      {
+        qid: "enrolment_supported",
+        name: "enrolment_supported",
+        label: {
+          en: "Children supported for enrolment this month (and cumulative, against the ~300 target)",
+        },
+        type: "textarea",
+        required: true,
+      },
+      {
+        qid: "enrolment_drives",
+        name: "enrolment_drives",
+        label: { en: "School enrolment drives conducted this month (settlement, date, outcome)" },
+        type: "textarea",
+      },
+      {
+        qid: "retention_issues",
+        name: "retention_issues",
+        label: { en: "Retention issues observed and action taken" },
+        type: "textarea",
+      },
+    ],
+  },
+  {
     id: "D",
     title: { en: "Programme Manager's field work" },
     items: [

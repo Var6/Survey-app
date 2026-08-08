@@ -2,7 +2,9 @@ import { casesCol } from "@/lib/models";
 import { computeDashboard } from "@/lib/weekly/dashboard";
 import { MODULE_LIST } from "@/lib/cases/modules";
 
-/** Calendar-month bucket for a given date, plus the PMM-YYYY-MM report id. */
+/** Calendar-month bucket for a given date, plus the PMM-YYYY-MM report id.
+ *  `reportId` is the Programme Manager's id; other variants build their own
+ *  from `year`/`month` via monthlyReportId() in ./variants. */
 export function monthOf(date: Date) {
   const y = date.getFullYear();
   const m = date.getMonth();

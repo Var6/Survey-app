@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client";
 import { labelText, type Field } from "@/lib/questionnaire";
-import { MONTHLY_SECTIONS, MONTHLY_CERTIFICATION } from "@/lib/monthly/schema";
+import { variantForAuthorRole } from "@/lib/monthly/variants";
+import type { Role } from "@/lib/models";
 import type { SettlementStatus } from "@/lib/models";
 import { Card, Empty, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import WeeklyDashboard from "@/components/WeeklyDashboard";
@@ -22,6 +23,7 @@ interface Report {
   data: Record<string, unknown>;
   certification: Record<string, boolean | string>;
   directorComments: string | null;
+  authorRole?: Role;
 }
 
 function optLabel(field: Field, code: string) {
@@ -41,7 +43,13 @@ const STATUS_CLS: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
 };
 
-export default function MonthlyReviewClient() {
+export default function MonthlyReviewClient({
+  scope,
+}: {
+  /** "review" lists the CM + MIS monthlies a Programme Manager approves;
+   *  omitted lists the Programme Manager monthlies the Director approves. */
+  scope?: "review";
+} = {}) {
   const [rows, setRows] = useState<Report[]>([]);
   const [status, setStatus] = useState("submitted");
   const [loading, setLoading] = useState(true);
@@ -52,15 +60,20 @@ export default function MonthlyReviewClient() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const q = status ? `?status=${status}` : "";
-      const { reports } = await apiFetch<{ reports: Report[] }>(`/api/monthly${q}`);
+      const p = new URLSearchParams();
+      if (status) p.set("status", status);
+      if (scope) p.set("scope", scope);
+      const qs = p.toString();
+      const { reports } = await apiFetch<{ reports: Report[] }>(
+        `/api/monthly${qs ? `?${qs}` : ""}`
+      );
       setRows(reports);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, scope]);
   useEffect(() => {
     load();
   }, [load]);
@@ -87,6 +100,7 @@ export default function MonthlyReviewClient() {
   }
 
   if (sel) {
+    const selVariant = variantForAuthorRole(sel.authorRole);
     const caseStats = (sel.dashboard as { caseStats?: unknown } | null)?.caseStats as
       | { module: string; title: string; newCases: number; completed: number; open: number; overdue: number }[]
       | undefined;
@@ -111,12 +125,14 @@ export default function MonthlyReviewClient() {
         <WeeklyDashboard dashboard={sel.dashboard} periodLabel="month" />
         {caseStats && <CaseStatsTable rows={caseStats} />}
 
-        <div>
-          <h3 className="mb-2 text-sm font-bold text-zinc-900 dark:text-zinc-50">Settlement control</h3>
-          <SettlementControl value={sel.settlements} readOnly />
-        </div>
+        {selVariant.hasSettlementControl && (
+          <div>
+            <h3 className="mb-2 text-sm font-bold text-zinc-900 dark:text-zinc-50">Settlement control</h3>
+            <SettlementControl value={sel.settlements} readOnly />
+          </div>
+        )}
 
-        {MONTHLY_SECTIONS.map((section) => {
+        {selVariant.sections.map((section) => {
           const items = section.items
             .map((f) => {
               const field = f as Field;
@@ -146,7 +162,7 @@ export default function MonthlyReviewClient() {
 
         <Card>
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">Certification</p>
-          {MONTHLY_CERTIFICATION.map((c) => (
+          {selVariant.certification.map((c) => (
             <p key={c.key} className="text-sm text-zinc-700 dark:text-zinc-300">
               {sel.certification[c.key] ? "☑" : "☐"} {c.label}
             </p>
@@ -160,7 +176,9 @@ export default function MonthlyReviewClient() {
 
         {sel.status === "submitted" && (
           <Card>
-            <label className={labelClass}>Director comments / action points</label>
+            <label className={labelClass}>
+              {selVariant.reviewerRole === "director" ? "Director" : "Manager"} comments / action points
+            </label>
             <textarea
               className={inputClass}
               rows={3}

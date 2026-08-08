@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client";
 import { labelText, isFieldVisible, type Field, type Option } from "@/lib/questionnaire";
-import { MONTHLY_SECTIONS, MONTHLY_CERTIFICATION } from "@/lib/monthly/schema";
+import {
+  MONTHLY_VARIANTS,
+  type MonthlyVariantKey,
+} from "@/lib/monthly/variants";
 import type { SettlementStatus } from "@/lib/models";
 import { Card, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import WeeklyDashboard from "@/components/WeeklyDashboard";
@@ -37,7 +40,15 @@ const STATUS_CLS: Record<string, string> = {
   approved: "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
 };
 
-export default function MonthlyReportForm() {
+export default function MonthlyReportForm({
+  variantKey = "pm",
+}: {
+  /** Which monthly report this is — picks the questions, certification and
+   *  submit rules. Defaults to the Programme Manager's report. */
+  variantKey?: MonthlyVariantKey;
+}) {
+  const variant = MONTHLY_VARIANTS[variantKey];
+  const hi = variant.lang === "hi";
   const [report, setReport] = useState<Report | null>(null);
   const [values, setValues] = useState<Values>({});
   const [settlements, setSettlements] = useState<SettlementStatus[]>([]);
@@ -135,6 +146,43 @@ export default function MonthlyReportForm() {
           onChange={(e) => setValue(field.name, e.target.value.replace(/[^\d]/g, ""))}
         />
       );
+    } else if (field.type === "multiselect") {
+      const arr = Array.isArray(value) ? (value as string[]) : [];
+      control = (
+        <div className="grid grid-cols-2 gap-1.5">
+          {(field.options || []).map((op) => (
+            <label
+              key={op.code}
+              className="flex items-center gap-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm dark:border-zinc-800"
+            >
+              <input
+                type="checkbox"
+                disabled={!editable}
+                checked={arr.includes(op.code)}
+                onChange={() =>
+                  setValue(
+                    field.name,
+                    arr.includes(op.code)
+                      ? arr.filter((x) => x !== op.code)
+                      : [...arr, op.code]
+                  )
+                }
+              />
+              <span className="text-zinc-700 dark:text-zinc-300">{optLabel(op)}</span>
+            </label>
+          ))}
+        </div>
+      );
+    } else if (field.type === "date") {
+      control = (
+        <input
+          className={inputClass}
+          type="date"
+          readOnly={!editable}
+          value={(value as string) || ""}
+          onChange={(e) => setValue(field.name, e.target.value)}
+        />
+      );
     } else if (field.type === "textarea") {
       control = (
         <textarea
@@ -185,13 +233,15 @@ export default function MonthlyReportForm() {
 
       {report.status === "returned" && report.directorComments && (
         <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-          Returned by Director: {report.directorComments}
+          {hi ? "सुधार हेतु वापस भेजा गया" : "Returned"} (
+          {variant.reviewerRole === "director" ? "Director" : "Programme Manager"}):{" "}
+          {report.directorComments}
         </div>
       )}
 
       <div>
         <h2 className="mb-2 text-sm font-bold text-zinc-900 dark:text-zinc-50">
-          Monthly summary dashboard (auto)
+          {hi ? "मासिक कार्य सारांश (ऐप से अपने-आप)" : "Monthly summary dashboard (auto)"}
         </h2>
         {/* @ts-expect-error dashboard is a loose shape */}
         <WeeklyDashboard dashboard={report.dashboard} periodLabel="month" />
@@ -206,14 +256,16 @@ export default function MonthlyReportForm() {
         </div>
       )}
 
-      <div>
-        <h2 className="mb-2 text-sm font-bold text-zinc-900 dark:text-zinc-50">
-          Settlement-wise oversight (traffic-light)
-        </h2>
-        <SettlementControl value={settlements} onChange={setSettlements} readOnly={!editable} />
-      </div>
+      {variant.hasSettlementControl && (
+        <div>
+          <h2 className="mb-2 text-sm font-bold text-zinc-900 dark:text-zinc-50">
+            Settlement-wise oversight (traffic-light)
+          </h2>
+          <SettlementControl value={settlements} onChange={setSettlements} readOnly={!editable} />
+        </div>
+      )}
 
-      {MONTHLY_SECTIONS.map((section) => (
+      {variant.sections.map((section) => (
         <div key={section.id} className="space-y-3">
           <div className="flex items-center gap-2 border-b border-zinc-200 pb-1 dark:border-zinc-800">
             <span className="flex h-6 w-6 items-center justify-center rounded bg-teal-100 text-xs font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
@@ -230,11 +282,13 @@ export default function MonthlyReportForm() {
       <div className="space-y-2">
         <div className="flex items-center gap-2 border-b border-zinc-200 pb-1 dark:border-zinc-800">
           <span className="flex h-6 w-6 items-center justify-center rounded bg-teal-100 text-xs font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-300">
-            K
+            ✓
           </span>
-          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Certification</h2>
+          <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
+            {hi ? "घोषणा / Declaration" : "Certification"}
+          </h2>
         </div>
-        {MONTHLY_CERTIFICATION.map((c) => (
+        {variant.certification.map((c) => (
           <label key={c.key} className="flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
             <input
               type="checkbox"
@@ -247,7 +301,9 @@ export default function MonthlyReportForm() {
           </label>
         ))}
         <div>
-          <label className={labelClass}>Final Manager comment</label>
+          <label className={labelClass}>
+            {hi ? "अंतिम टिप्पणी (वैकल्पिक)" : "Final comment"}
+          </label>
           <textarea
             className={inputClass}
             rows={2}
@@ -260,7 +316,9 @@ export default function MonthlyReportForm() {
 
       {issues.length > 0 && (
         <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
-          <p className="font-semibold">Fix before submitting:</p>
+          <p className="font-semibold">
+            {hi ? "जमा करने से पहले यह पूरा करें:" : "Fix before submitting:"}
+          </p>
           <ul className="ml-4 list-disc">
             {issues.map((i) => (
               <li key={i}>{i}</li>
@@ -274,10 +332,14 @@ export default function MonthlyReportForm() {
       {editable && (
         <div className="flex gap-2 pt-2">
           <button className={btnGhost} onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save draft"}
+            {saving ? (hi ? "सेव हो रहा है…" : "Saving…") : hi ? "ड्राफ्ट सेव करें" : "Save draft"}
           </button>
           <button className={btnPrimary} onClick={submit} disabled={saving}>
-            Submit to Director
+            {variant.reviewerRole === "director"
+              ? "Submit to Director"
+              : hi
+              ? "Programme Manager को जमा करें"
+              : "Submit to Programme Manager"}
           </button>
         </div>
       )}

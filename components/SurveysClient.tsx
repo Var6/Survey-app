@@ -36,8 +36,11 @@ export default function SurveysClient({
 }: {
   scope: "director" | "cm" | "mis";
 }) {
+  // "mis" scope covers the Programme Manager screens too — every office role
+  // gets the same filters and export the Director has; only CMs are narrowed
+  // to their own surveys.
   const isDirector = scope === "director" || scope === "mis";
-  const canExport = scope === "director";
+  const canExport = isDirector;
   const pathname = usePathname();
   const [rows, setRows] = useState<SurveyRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -48,14 +51,16 @@ export default function SurveysClient({
   const [mobiliserId, setMobiliserId] = useState("");
   const [settlement, setSettlement] = useState("");
   const [sync, setSync] = useState("");
+  const [status, setStatus] = useState("");
 
   const query = useCallback(() => {
     const p = new URLSearchParams();
     if (isDirector && mobiliserId) p.set("mobiliserId", mobiliserId);
     if (settlement) p.set("settlement", settlement);
     if (sync) p.set("sync", sync);
+    if (status) p.set("status", status);
     return p.toString();
-  }, [isDirector, mobiliserId, settlement, sync]);
+  }, [isDirector, mobiliserId, settlement, sync, status]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,6 +130,12 @@ export default function SurveysClient({
             <option value="unsynced">Not synced</option>
             <option value="failed">Failed</option>
             <option value="pending">Pending</option>
+          </select>
+          <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">Any status</option>
+            <option value="complete">Complete</option>
+            <option value="partial">Incomplete (partial)</option>
+            <option value="refused_midway">Refused midway</option>
           </select>
         </div>
         {canExport && (

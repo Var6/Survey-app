@@ -3,7 +3,7 @@ import {
   json,
   handleError,
   requireDirector,
-  requireFinance,
+  requireRoles,
   readJson,
 } from "@/lib/api";
 import { usersCol, ensureIndexes, type UserDoc, type Role } from "@/lib/models";
@@ -20,8 +20,10 @@ const ROLES: Role[] = [
 
 export async function GET(req: Request) {
   try {
-    // Finance users (director/accountant) can list users (e.g. for payroll).
-    await requireFinance();
+    // Finance users need this for payroll; PM and MIS need it to populate the
+    // "filter by mobiliser" dropdown on the surveys/reports screens. CMs are
+    // deliberately excluded — they only ever see their own records.
+    await requireRoles("director", "accountant", "programme_manager", "mis");
     const url = new URL(req.url);
     const role = url.searchParams.get("role");
     const projectId = url.searchParams.get("projectId");

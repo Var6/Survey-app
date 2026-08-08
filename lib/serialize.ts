@@ -165,6 +165,8 @@ export function publicMonthlyReport(
     id: String(m._id),
     reportId: m.reportId,
     programmeManagerId: String(m.programmeManagerId),
+    /** Legacy documents carry no authorRole — they are all PM reports. */
+    authorRole: m.authorRole ?? "programme_manager",
     pmName: extra?.pmName ?? m.pmName ?? null,
     monthStart: m.monthStart,
     monthEnd: m.monthEnd,

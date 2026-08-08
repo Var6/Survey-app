@@ -1,4 +1,4 @@
-import { handleError, requireDirector } from "@/lib/api";
+import { handleError, requireRoles } from "@/lib/api";
 import { surveysCol } from "@/lib/models";
 import { buildSurveyFilter, attachMobiliserNames } from "@/lib/surveys";
 import { buildSurveyWorkbook } from "@/lib/export";
@@ -7,9 +7,10 @@ export const runtime = "nodejs";
 
 export async function GET(req: Request) {
   try {
-    const director = await requireDirector();
+    // Same office roles that can already export daily reports.
+    const user = await requireRoles("director", "mis", "programme_manager");
     const params = new URL(req.url).searchParams;
-    const filter = buildSurveyFilter(director, params);
+    const filter = buildSurveyFilter(user, params);
 
     const surveys = await surveysCol();
     const docs = await surveys

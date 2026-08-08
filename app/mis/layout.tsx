@@ -9,6 +9,7 @@ const NAV: ShellNavGroup[] = [
       { href: "/mis/surveys", label: "Surveys", icon: "survey" },
       { href: "/mis/survey/new", label: "New survey", icon: "grid" },
       { href: "/mis/reports", label: "CM Reports", icon: "report" },
+      { href: "/mis/monthly", label: "My monthly report", icon: "calendar" },
     ],
   },
   {
