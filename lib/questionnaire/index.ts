@@ -7,11 +7,11 @@ import type {
   SectionItem,
 } from "./types";
 import { isRepeat } from "./types";
-import { QUESTIONNAIRE, FORM_VERSION } from "./schema";
+import { QUESTIONNAIRE, LEGACY_PERSON_SECTIONS, FORM_VERSION } from "./schema";
 
 export * from "./types";
 export * from "./settlements";
-export { QUESTIONNAIRE, FORM_VERSION } from "./schema";
+export { QUESTIONNAIRE, LEGACY_PERSON_SECTIONS, FORM_VERSION } from "./schema";
 
 /** Prefer Hindi (field-facing); fall back to English while Hindi is unfilled. */
 export function labelText(l: Label | { en: string; hi?: string }): string {
@@ -75,7 +75,7 @@ export function allTopLevelFields(): Field[] {
 }
 
 export function findField(name: string): Field | undefined {
-  for (const section of QUESTIONNAIRE) {
+  for (const section of [...QUESTIONNAIRE, ...LEGACY_PERSON_SECTIONS]) {
     for (const item of section.items) {
       if (isRepeat(item)) {
         const f = item.fields.find((x) => x.name === name);
@@ -88,9 +88,11 @@ export function findField(name: string): Field | undefined {
   return undefined;
 }
 
+/** Includes the retired per-person rosters so surveys collected under the old
+ *  structure still export their child/youth sheets. */
 export function repeatGroups(): RepeatGroup[] {
   const out: RepeatGroup[] = [];
-  for (const section of QUESTIONNAIRE) {
+  for (const section of [...QUESTIONNAIRE, ...LEGACY_PERSON_SECTIONS]) {
     for (const item of section.items) {
       if (isRepeat(item)) out.push(item);
     }

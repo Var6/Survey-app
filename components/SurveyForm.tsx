@@ -477,11 +477,32 @@ export default function SurveyForm({
     // A resumed survey keeps its original start time.
     const hhmm = (d: Date) =>
       `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    const members = slice("household_members", "hh_total_members");
+
+    // Target-group counts are no longer typed in — every person is described
+    // once in the roster, so the counts are read back from it. Dashboards and
+    // the funder export keep the same field names.
+    const yearsOf = (m: Values) => {
+      const n = Number(m.member_age);
+      return Number.isFinite(n) && String(m.member_age ?? "").length > 0
+        ? Math.floor(n)
+        : null;
+    };
+    const countAged = (lo: number, hi: number, extra?: (m: Values) => boolean) =>
+      members.filter((m) => {
+        const a = yearsOf(m);
+        return a !== null && a >= lo && a <= hi && (!extra || extra(m));
+      }).length;
+
     const stamped = {
       ...values,
       interview_start_time:
         (resume && (values.interview_start_time as string)) || hhmm(interviewStart.current),
       interview_end_time: hhmm(new Date()),
+      num_children_0_3: countAged(0, 3),
+      num_children_4_12: countAged(4, 12),
+      num_youth_13_24: countAged(13, 24),
+      num_women_15_49: countAged(15, 49, (m) => m.member_gender === "female"),
     };
 
     const payload = {
@@ -491,10 +512,7 @@ export default function SurveyForm({
       formVersion: values.form_version || "V1.0",
       status: (values.form_complete_status as string) || "complete",
       data: stamped,
-      members: slice("household_members", "hh_total_members"),
-      children_0_3: slice("children_0_3", "num_children_0_3"),
-      children_4_12: slice("children_4_12", "num_children_4_12"),
-      youth_13_24: slice("youth_13_24", "num_youth_13_24"),
+      members,
       gps: (values.gps_location as object) || null,
     };
     const label =

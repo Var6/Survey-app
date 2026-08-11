@@ -1,5 +1,6 @@
 import {
   QUESTIONNAIRE,
+  LEGACY_PERSON_SECTIONS,
   labelText,
   isRepeat,
   type Field,
@@ -173,7 +174,19 @@ export default function SurveyDetailView({ survey }: { survey: SurveyDetail }) {
       </div>
 
       {/* All questionnaire sections, schema-driven. */}
-      {QUESTIONNAIRE.map((section) => {
+      {[
+        ...QUESTIONNAIRE,
+        // Old surveys kept separate child/youth rosters — show them when present.
+        ...LEGACY_PERSON_SECTIONS.filter((sec) =>
+          sec.items.some(
+            (it) =>
+              isRepeat(it) &&
+              ((survey[GROUP_ROWS[it.name]] as Values[] | undefined) || []).some(
+                (r) => r && Object.keys(r).length > 0
+              )
+          )
+        ),
+      ].map((section) => {
         // Build the section's blocks in order, tracking whether anything is answered.
         let hasContent = false;
         const parts: React.ReactNode[] = [];

@@ -41,7 +41,12 @@ function dateKey(iso: string) {
   ).padStart(2, "0")}`;
 }
 
-export default function ReportingHub() {
+export default function ReportingHub({
+  canReview = true,
+}: {
+  /** false = read-only viewer (MIS): reports are visible, approval is not. */
+  canReview?: boolean;
+} = {}) {
   const [role, setRole] = useState<Role | null>(null);
   const [type, setType] = useState<RType | null>(null);
 
@@ -114,8 +119,12 @@ export default function ReportingHub() {
                 t === "daily"
                   ? "Open a calendar and click a date to read that day's reports"
                   : t === "weekly"
-                  ? "Review & approve weekly reports"
-                  : "Review & approve monthly reports"
+                  ? canReview
+                    ? "Review & approve weekly reports"
+                    : "Read the weekly reports"
+                  : canReview
+                  ? "Review & approve monthly reports"
+                  : "Read the monthly reports"
               }
               onClick={() => setType(t)}
             />
@@ -140,8 +149,8 @@ export default function ReportingHub() {
           </a>
         </div>
       )}
-      {type === "weekly" && <WeeklyReviewClient />}
-      {type === "monthly" && <MonthlyReviewClient />}
+      {type === "weekly" && <WeeklyReviewClient readOnly={!canReview} />}
+      {type === "monthly" && <MonthlyReviewClient readOnly={!canReview} />}
       {type === "daily" && role && <DailyCalendar role={role} />}
     </div>
   );

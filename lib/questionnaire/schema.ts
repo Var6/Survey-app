@@ -656,10 +656,8 @@ const sectionE: Section = {
   title: { en: "Target group counts", hi: "समूह गिनती" },
   showWhen: gated(),
   items: [
-    intCount("E1", "num_children_0_3", "Number of children aged 0–3", "0-3 साल के कितने बच्चे हैं?"),
-    intCount("E2", "num_children_4_12", "Number of children aged 4–12", "4-12 साल के कितने बच्चे हैं?"),
-    intCount("E3", "num_youth_13_24", "Number of youth aged 13–24", "13-24 साल के कितने युवा हैं?"),
-    intCount("E4", "num_women_15_49", "Number of women aged 15–49", "15-49 साल की कितनी महिलाएँ हैं?"),
+    // E1–E4 (children 0–3, 4–12, youth 13–24, women 15–49) are counted from
+    // the member roster on submit — asking them again would duplicate it.
     {
       qid: "E5",
       name: "has_pregnant_or_lactating",
@@ -1497,6 +1495,45 @@ const youth: RepeatGroup = {
   ],
 };
 
+/* ─── One person, asked once ─────────────────────────────────
+ * Sections I (0–3), J (4–12) and K (13–24) used to collect the same people a
+ * second time, with their own name/age/gender. Those question blocks now live
+ * inside the household member roster and appear against the member whose age
+ * matches, so every person is covered the first — and only — time they come up.
+ * The groups below stay defined so surveys collected under the old structure
+ * still render and export.
+ * ─────────────────────────────────────────────────────────── */
+
+/** Identity questions the roster already asked — never repeat these. */
+const ALREADY_ASKED = new Set([
+  "child_0_3_name",
+  "child_0_3_age_months",
+  "child_0_3_gender",
+  "child_name",
+  "child_age",
+  "child_gender",
+  "youth_name",
+  "youth_age",
+  "youth_gender",
+]);
+
+/** Re-home a block of person questions under an age gate, keeping each
+ *  field's own skip logic (both conditions must hold). */
+function forMembersAged(fields: Field[], cond: Condition): Field[] {
+  return fields
+    .filter((f) => !ALREADY_ASKED.has(f.name))
+    .map((f) => ({
+      ...f,
+      showWhen: f.showWhen ? ({ all: [cond, f.showWhen] } as Condition) : cond,
+    }));
+}
+
+rosterMember.fields.push(
+  ...forMembersAged(child03.fields, { expr: (v) => inAge(v, 0, 3) }),
+  ...forMembersAged(child412.fields, { expr: (v) => inAge(v, 4, 12) }),
+  ...forMembersAged(youth.fields, { expr: (v) => inAge(v, 13, 24) })
+);
+
 const sectionK: Section = {
   id: "K",
   title: { en: "Youth 13–24", hi: "13-24 साल के युवा" },
@@ -1829,6 +1866,9 @@ const sectionO: Section = {
   ],
 };
 
+/** Person rosters replaced by the member roster — legacy surveys only. */
+export const LEGACY_PERSON_SECTIONS: Section[] = [sectionI, sectionJ, sectionK];
+
 export const QUESTIONNAIRE: Section[] = [
   sectionA,
   sectionB,
@@ -1838,9 +1878,8 @@ export const QUESTIONNAIRE: Section[] = [
   sectionF,
   sectionG,
   sectionH,
-  sectionI,
-  sectionJ,
-  sectionK,
+  // sectionI / sectionJ / sectionK are folded into the member roster (D) —
+  // kept exported below for rendering and exporting legacy surveys.
   sectionL,
   sectionM,
   sectionN,

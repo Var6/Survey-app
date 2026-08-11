@@ -45,7 +45,10 @@ const STATUS_CLS: Record<string, string> = {
 
 export default function MonthlyReviewClient({
   scope,
+  readOnly = false,
 }: {
+  /** Viewers who may read but not approve/return (e.g. MIS). */
+  readOnly?: boolean;
   /** "review" lists the CM + MIS monthlies a Programme Manager approves;
    *  omitted lists the Programme Manager monthlies the Director approves. */
   scope?: "review";
@@ -174,7 +177,7 @@ export default function MonthlyReviewClient({
           )}
         </Card>
 
-        {sel.status === "submitted" && (
+        {!readOnly && sel.status === "submitted" && (
           <Card>
             <label className={labelClass}>
               {selVariant.reviewerRole === "director" ? "Director" : "Manager"} comments / action points

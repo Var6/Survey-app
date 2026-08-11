@@ -41,7 +41,12 @@ const STATUS_CLS: Record<string, string> = {
   draft: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
 };
 
-export default function WeeklyReviewClient() {
+export default function WeeklyReviewClient({
+  readOnly = false,
+}: {
+  /** Viewers who may read but not approve/return (e.g. MIS). */
+  readOnly?: boolean;
+} = {}) {
   const [rows, setRows] = useState<Report[]>([]);
   const [status, setStatus] = useState("submitted");
   const [loading, setLoading] = useState(true);
@@ -142,7 +147,7 @@ export default function WeeklyReviewClient() {
           )}
         </Card>
 
-        {sel.status === "submitted" && (
+        {!readOnly && sel.status === "submitted" && (
           <Card>
             <label className={labelClass}>Director comments / action points</label>
             <textarea className={inputClass} rows={3} value={comments} onChange={(e) => setComments(e.target.value)} placeholder="Comments, decisions, action points…" />

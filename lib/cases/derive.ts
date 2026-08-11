@@ -18,6 +18,42 @@ export interface CaseSeed {
 
 type Row = Record<string, unknown>;
 
+/** Completed years for a roster member (age is stored in decimal years). */
+function memberYears(m: Row): number | null {
+  const n = Number(m.member_age);
+  return Number.isFinite(n) && String(m.member_age ?? "").length > 0
+    ? Math.floor(n)
+    : null;
+}
+
+/**
+ * People in an age band. Every person is now described once in the household
+ * member roster, so that is the source of truth. Surveys collected under the
+ * old structure kept separate child/youth rosters — when one is present we
+ * read it instead, so their cases keep deriving exactly as before.
+ */
+function peopleAged(
+  legacy: Row[] | undefined,
+  members: Row[],
+  lo: number,
+  hi: number
+): Row[] {
+  if (legacy && legacy.length) return legacy;
+  return members.filter((m) => {
+    const a = memberYears(m);
+    return a !== null && a >= lo && a <= hi;
+  });
+}
+
+/** Person's name under either structure. */
+const personName = (r: Row, ...keys: string[]): string => {
+  for (const k of keys) {
+    const v = String(r[k] ?? "").trim();
+    if (v) return v;
+  }
+  return "";
+};
+
 /**
  * Apply the seven-module auto-population triggers to one survey and return the
  * case seeds it should generate. Deterministic — the same survey always yields
@@ -175,7 +211,8 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
   }
 
   /* 4 ── Education & Out-of-School Children (per child 4–12) ──── */
-  (survey.children_4_12 || []).forEach((c, i) => {
+  const roster = (survey.members || []) as Row[];
+  peopleAged(survey.children_4_12 as Row[] | undefined, roster, 4, 12).forEach((c, i) => {
     const st = String((c as Row).child_school_status || "");
     const map: Record<string, string> = {
       never_enrolled: "never_enrolled",
@@ -188,14 +225,14 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
       st === "never_enrolled" || st === "dropped_out" ? "high" : "medium";
     push("education", map[st], {
       dedupe: `c${i}`,
-      subject: String((c as Row).child_name || "Child"),
+      subject: personName(c as Row, "child_name", "member_name") || "Child",
       priority,
-      meta: { age: (c as Row).child_age, status: st },
+      meta: { age: (c as Row).child_age ?? (c as Row).member_age, status: st },
     });
   });
 
   /* 5 ── Early Childhood & Anganwadi (per child 0–3) ─────────── */
-  (survey.children_0_3 || []).forEach((c, i) => {
+  peopleAged(survey.children_0_3 as Row[] | undefined, roster, 0, 3).forEach((c, i) => {
     const r = c as Row;
     const bc = String(r.child_0_3_birth_certificate || "");
     const aw = String(r.child_0_3_anganwadi_linked || "");
@@ -224,14 +261,14 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
     else if (support.includes("health_check")) sub = "child_health";
     push("early_childhood", sub, {
       dedupe: `c${i}`,
-      subject: String(r.child_0_3_name || "Child"),
+      subject: personName(r, "child_0_3_name", "member_name") || "Child",
       meta: { birth_cert: bc, anganwadi: aw, immunisation: im, growth: gm, support },
     });
   });
 
   /* 6 ── Youth Group & Leadership (per youth 13–24) ──────────── */
   let youthSeeds = 0;
-  (survey.youth_13_24 || []).forEach((y, i) => {
+  peopleAged(survey.youth_13_24 as Row[] | undefined, roster, 13, 24).forEach((y, i) => {
     const r = y as Row;
     const interest = String(r.youth_group_interest || "");
     const leader = String(r.potential_youth_leader || "");
@@ -249,7 +286,7 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
     youthSeeds++;
     push("youth", sub, {
       dedupe: `y${i}`,
-      subject: String(r.youth_name || "Youth"),
+      subject: personName(r, "youth_name", "member_name") || "Youth",
       priority,
       meta: { interest, topics: r.youth_interest_topics, status: r.youth_status },
     });
