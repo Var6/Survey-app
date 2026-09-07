@@ -74,6 +74,19 @@ export function allTopLevelFields(): Field[] {
   return out;
 }
 
+/**
+ * The answerable (non-repeat, non-note) fields of one questionnaire section,
+ * e.g. "G" for health access. Used by the export to give a section its own
+ * worksheet without duplicating the field list.
+ */
+export function sectionFields(id: string): Field[] {
+  const section = QUESTIONNAIRE.find((s) => s.id === id);
+  if (!section) return [];
+  return section.items.filter(
+    (it): it is Field => !isRepeat(it) && it.type !== "note"
+  );
+}
+
 export function findField(name: string): Field | undefined {
   for (const section of [...QUESTIONNAIRE, ...LEGACY_PERSON_SECTIONS]) {
     for (const item of section.items) {

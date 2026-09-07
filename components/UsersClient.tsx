@@ -36,7 +36,15 @@ const ROLE_OPTIONS = [
   { value: "director", label: "Director" },
 ];
 
-export default function UsersClient() {
+export default function UsersClient({
+  canManageDirectors = true,
+}: {
+  /** MIS onboards staff but cannot create or edit Director accounts. */
+  canManageDirectors?: boolean;
+} = {}) {
+  const roleOptions = canManageDirectors
+    ? ROLE_OPTIONS
+    : ROLE_OPTIONS.filter((r) => r.value !== "director");
   const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,7 +188,7 @@ export default function UsersClient() {
             <div>
               <label className={labelClass}>Role *</label>
               <select className={inputClass} value={role} onChange={(e) => setRole(e.target.value)}>
-                {ROLE_OPTIONS.map((r) => (
+                {roleOptions.map((r) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
                 ))}
               </select>
@@ -294,6 +302,10 @@ export default function UsersClient() {
                   }}
                   onError={setErr}
                 />
+              ) : !canManageDirectors && u.role === "director" ? (
+                <p className="mt-3 text-xs text-zinc-400">
+                  Director accounts can only be changed by a Director.
+                </p>
               ) : (
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button className={btnGhost} onClick={() => setEditing(u.id)}>

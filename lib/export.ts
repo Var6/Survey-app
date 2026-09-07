@@ -19,6 +19,7 @@ import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
 import {
   allTopLevelFields,
   repeatGroups,
+  sectionFields,
   isRepeat,
   type Field,
 } from "./questionnaire";
@@ -111,6 +112,18 @@ const REPEAT_DOC_KEY: Record<string, keyof SurveyDoc> = {
 };
 
 /**
+ * Household-level questionnaire sections that also get a worksheet of their
+ * own, so these themes can be worked on without scrolling the wide Surveys
+ * sheet. They stay in the Surveys sheet too — this is additive.
+ * One row per surveyed household that answered anything in the section.
+ */
+const SECTION_SHEETS: { sheet: string; sectionId: string }[] = [
+  { sheet: "Health", sectionId: "G" }, // Health access
+  { sheet: "Pregnant", sectionId: "H" }, // Maternal health, pregnancy and ICDS
+  { sheet: "Documents", sectionId: "F" }, // Documents and entitlements
+];
+
+/**
  * Full-questionnaire survey workbook. The app UI is Hindi-first, but the
  * export uses ENGLISH column headers and English option labels throughout.
  * Repeat groups (members / children / youth) get their own sheets keyed by
@@ -185,6 +198,48 @@ export async function buildSurveyWorkbook(
         for (const f of group.fields) row[f.name] = enValue(f, item[f.name]);
         sheet.addRow(row);
       });
+    }
+  }
+
+  // Health / Pregnant / Documents — one sheet each, keyed by Household ID so
+  // they join back to the Surveys sheet. Created even when empty, so the
+  // workbook always has the same tabs.
+  for (const { sheet: sheetName, sectionId } of SECTION_SHEETS) {
+    const secFields = sectionFields(sectionId);
+    const sheet = wb.addWorksheet(sheetName);
+    sheet.columns = [
+      { header: "Household ID", key: "hh", width: 18 },
+      { header: "Settlement", key: "settlement", width: 20 },
+      { header: "Mobiliser", key: "mob", width: 20 },
+      { header: "Survey date", key: "date", width: 14 },
+      ...secFields.map((f) => ({
+        header: f.label.en,
+        key: f.name,
+        width: Math.min(Math.max(f.label.en.length + 2, 14), 40),
+      })),
+    ];
+    sheet.getRow(1).font = { bold: true };
+
+    for (const { survey, mobiliserName } of rows) {
+      const d = survey.data || {};
+      // Skip households that answered nothing in this section — the sheet
+      // lists records, not one blank line per survey.
+      const answered = secFields.some((f) => {
+        const v = d[f.name];
+        return v !== undefined && v !== null && v !== "" &&
+          !(Array.isArray(v) && v.length === 0);
+      });
+      if (!answered) continue;
+
+      const row: Record<string, unknown> = {
+        hh: survey.householdId,
+        settlement:
+          SETTLEMENT_BY_CODE[survey.settlementCode]?.label || survey.settlementCode,
+        mob: mobiliserName || "",
+        date: (d.survey_date as string) || fmtDate(survey.createdAt).slice(0, 10),
+      };
+      for (const f of secFields) row[f.name] = enValue(f, d[f.name]);
+      sheet.addRow(row);
     }
   }
 

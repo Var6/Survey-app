@@ -1,14 +1,27 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireDirector, readJson } from "@/lib/api";
+import { json, handleError, requireRoles, readJson } from "@/lib/api";
 import { usersCol, type Role } from "@/lib/models";
 import { hashPassword } from "@/lib/auth";
 import { publicUser } from "@/lib/serialize";
 
 const ROLES: Role[] = ["director", "cm", "accountant", "programme_manager", "mis"];
 
+/** MIS manages staff accounts, but Director accounts stay Director-only —
+ *  both the account being changed and the role being assigned. */
+function blockedForMis(
+  editorRole: string,
+  targetRole: string,
+  nextRole?: string
+): string | null {
+  if (editorRole !== "mis") return null;
+  if (targetRole === "director") return "Only a Director can change a Director account";
+  if (nextRole === "director") return "Only a Director can grant the Director role";
+  return null;
+}
+
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const director = await requireDirector();
+    const editor = await requireRoles("director", "mis");
     const { id } = await ctx.params;
     let _id: ObjectId;
     try {
@@ -33,6 +46,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     const user = await users.findOne({ _id });
     if (!user) return json({ error: "User not found" }, 404);
 
+    const denied = blockedForMis(editor.role, user.role, body.role);
+    if (denied) return json({ error: denied }, 403);
+
     const set: Record<string, unknown> = { updatedAt: new Date() };
     if (typeof body.name === "string" && body.name.trim()) set.name = body.name.trim();
     if (typeof body.email === "string" && body.email.trim()) {
@@ -42,8 +58,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       set.email = email;
     }
     if (typeof body.role === "string" && ROLES.includes(body.role as Role)) {
-      // Don't let a director demote their own account by accident.
-      if (String(_id) === String(director._id) && body.role !== "director") {
+      // Don't let anyone demote their own account by accident.
+      if (String(_id) === String(editor._id) && body.role !== editor.role) {
         return json({ error: "You cannot change your own role" }, 400);
       }
       set.role = body.role;
@@ -78,7 +94,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const director = await requireDirector();
+    const editor = await requireRoles("director", "mis");
     const { id } = await ctx.params;
     let _id: ObjectId;
     try {
@@ -86,10 +102,16 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     } catch {
       return json({ error: "Invalid id" }, 400);
     }
-    if (String(_id) === String(director._id)) {
+    if (String(_id) === String(editor._id)) {
       return json({ error: "You cannot delete your own account" }, 400);
     }
     const users = await usersCol();
+    const target = await users.findOne({ _id });
+    if (!target) return json({ error: "User not found" }, 404);
+
+    const denied = blockedForMis(editor.role, target.role);
+    if (denied) return json({ error: denied }, 403);
+
     const res = await users.deleteOne({ _id });
     if (!res.deletedCount) return json({ error: "User not found" }, 404);
     return json({ ok: true });

@@ -2,7 +2,6 @@ import { ObjectId } from "mongodb";
 import {
   json,
   handleError,
-  requireDirector,
   requireRoles,
   readJson,
 } from "@/lib/api";
@@ -48,8 +47,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    // Only a director can create/manage user accounts.
-    const director = await requireDirector();
+    // Director and MIS both onboard staff. MIS may not mint Director
+    // accounts — that would let them grant themselves full control.
+    const creator = await requireRoles("director", "mis");
     await ensureIndexes();
     const body = await readJson<{
       role?: Role;
@@ -63,6 +63,9 @@ export async function POST(req: Request) {
     }>(req);
 
     const role: Role = ROLES.includes(body.role as Role) ? (body.role as Role) : "cm";
+    if (creator.role === "mis" && role === "director") {
+      return json({ error: "Only a Director can create Director accounts" }, 403);
+    }
     const name = body.name?.trim();
     const email = body.email?.toLowerCase().trim();
     const password = body.password;
@@ -100,7 +103,7 @@ export async function POST(req: Request) {
       projectId,
       communities: role === "cm" && Array.isArray(body.communities) ? body.communities : [],
       active: true,
-      createdBy: director._id,
+      createdBy: creator._id,
       createdAt: now,
       updatedAt: now,
     };
