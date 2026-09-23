@@ -4,6 +4,7 @@ import { monthlyReportsCol, usersCol, ensureIndexes, type MonthlyReportDoc } fro
 import { publicMonthlyReport } from "@/lib/serialize";
 import { monthOf, computeMonthlyDashboard } from "@/lib/monthly/dashboard";
 import { variantForRole, monthlyReportId } from "@/lib/monthly/variants";
+import { buildMonthlyFilter } from "@/lib/monthly/query";
 import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
 
 export const runtime = "nodejs";
@@ -13,24 +14,8 @@ export async function GET(req: Request) {
     const user = await requireRoles("programme_manager", "director", "mis", "cm");
     const params = new URL(req.url).searchParams;
 
-    const filter: Record<string, unknown> = {};
-    // Authors see only their own; the Director sees everything; a Programme
-    // Manager also reviews the CM and MIS reports submitted to them.
-    if (user.role === "cm" || user.role === "mis") {
-      filter.programmeManagerId = user._id;
-    } else if (user.role === "programme_manager") {
-      const scope = params.get("scope");
-      if (scope === "review") {
-        // CM + MIS monthlies awaiting this manager's review.
-        filter.authorRole = { $in: ["cm", "mis"] };
-      } else {
-        filter.programmeManagerId = user._id;
-      }
-    }
-    const authorRole = params.get("authorRole");
-    if (authorRole) filter.authorRole = authorRole;
-    const status = params.get("status");
-    if (status) filter.status = status;
+    // Same rule the Excel export and the PDF print view use.
+    const filter = buildMonthlyFilter(user, params);
 
     const col = await monthlyReportsCol();
     const docs = await col.find(filter).sort({ monthStart: -1 }).toArray();

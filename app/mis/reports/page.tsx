@@ -13,7 +13,7 @@ export default function MisReportsPage() {
       />
       {/* MIS reads and exports everything, but approval stays with the
           Director (PM reports) and the Programme Manager (CM/MIS reports). */}
-      <ReportingHub canReview={false} />
+      <ReportingHub canReview={false} printBase="/mis" />
     </div>
   );
 }

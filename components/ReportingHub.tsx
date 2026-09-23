@@ -43,7 +43,10 @@ function dateKey(iso: string) {
 
 export default function ReportingHub({
   canReview = true,
+  printBase = "/director",
 }: {
+  /** Area prefix for the print route, e.g. "/mis". */
+  printBase?: string;
   /** false = read-only viewer (MIS): reports are visible, approval is not. */
   canReview?: boolean;
 } = {}) {
@@ -132,9 +135,9 @@ export default function ReportingHub({
         </div>
       )}
 
-      {/* Level 3: the report view (+ Excel download) */}
+      {/* Level 3: the report view (+ Excel / PDF downloads) */}
       {role && type && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <a
             href={
               type === "daily"
@@ -147,10 +150,20 @@ export default function ReportingHub({
           >
             ⬇ Download Excel
           </a>
+          {/* Hard copies: opens every report matching the current filter,
+              one per page, ready to save as PDF or print. */}
+          {type === "monthly" && (
+            <a
+              href={`${printBase}/monthly-print`}
+              className="rounded-lg border border-teal-600 bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-teal-700"
+            >
+              ⬇ Download PDF
+            </a>
+          )}
         </div>
       )}
       {type === "weekly" && <WeeklyReviewClient readOnly={!canReview} />}
-      {type === "monthly" && <MonthlyReviewClient readOnly={!canReview} />}
+      {type === "monthly" && <MonthlyReviewClient readOnly={!canReview} printBase={printBase} />}
       {type === "daily" && role && <DailyCalendar role={role} />}
     </div>
   );

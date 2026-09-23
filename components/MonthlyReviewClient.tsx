@@ -46,7 +46,10 @@ const STATUS_CLS: Record<string, string> = {
 export default function MonthlyReviewClient({
   scope,
   readOnly = false,
+  printBase = "/director",
 }: {
+  /** Area prefix for the print route, e.g. "/mis". */
+  printBase?: string;
   /** Viewers who may read but not approve/return (e.g. MIS). */
   readOnly?: boolean;
   /** "review" lists the CM + MIS monthlies a Programme Manager approves;
@@ -109,9 +112,17 @@ export default function MonthlyReviewClient({
       | undefined;
     return (
       <div className="mx-auto max-w-3xl space-y-5">
-        <button className={btnGhost} onClick={() => setSel(null)}>
-          ← Back to list
-        </button>
+        <div className="flex items-center justify-between gap-2">
+          <button className={btnGhost} onClick={() => setSel(null)}>
+            ← Back to list
+          </button>
+          <a
+            href={`${printBase}/monthly-print?id=${sel.id}`}
+            className="rounded-lg border border-teal-600 bg-teal-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            ⬇ PDF
+          </a>
+        </div>
         <div className="flex items-center justify-between">
           <div>
             <p className="font-bold text-zinc-900 dark:text-zinc-50">{sel.reportId}</p>
