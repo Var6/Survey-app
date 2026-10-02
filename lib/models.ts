@@ -19,6 +19,7 @@ export const COLLECTIONS = {
   cases: "cases",
   budgets: "budgets",
   counters: "counters",
+  settlements: "settlements",
 } as const;
 
 /* ─────────────────────────────────────────────────────────────
@@ -372,6 +373,24 @@ export interface BudgetDoc {
   updatedAt: Date;
 }
 
+/**
+ * A community / informal settlement. Seeded from the original twelve, then
+ * managed in the app by the Director, Programme Manager or MIS.
+ * `code` and `hhPrefix` are fixed once created — household IDs are built from
+ * the prefix and existing survey data refers to the code.
+ */
+export interface SettlementDoc {
+  _id?: ObjectId;
+  code: string;
+  label: string;
+  hhPrefix: string;
+  active: boolean;
+  order: number;
+  createdBy?: ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface CounterDoc {
   _id: string; // the counter key
   seq: number;
@@ -395,6 +414,7 @@ export const monthlyReportsCol = () =>
 export const casesCol = () => col<CaseDoc>(COLLECTIONS.cases);
 export const budgetsCol = () => col<BudgetDoc>(COLLECTIONS.budgets);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
+export const settlementsCol = () => col<SettlementDoc>(COLLECTIONS.settlements);
 
 async function col<T extends import("mongodb").Document>(
   name: string
@@ -477,6 +497,12 @@ export async function ensureIndexes(): Promise<void> {
     db.collection(COLLECTIONS.cases).createIndex({ settlementCode: 1 }),
     db.collection(COLLECTIONS.cases).createIndex({ householdId: 1 }),
     db.collection(COLLECTIONS.cases).createIndex({ closed: 1, dueDate: 1 }),
+    db
+      .collection(COLLECTIONS.settlements)
+      .createIndex({ code: 1 }, { unique: true }),
+    db
+      .collection(COLLECTIONS.settlements)
+      .createIndex({ hhPrefix: 1 }, { unique: true }),
   ]);
 
   indexesEnsured = true;

@@ -130,8 +130,12 @@ const SECTION_SHEETS: { sheet: string; sectionId: string }[] = [
  * Household ID.
  */
 export async function buildSurveyWorkbook(
-  rows: { survey: SurveyDoc; mobiliserName?: string }[]
+  rows: { survey: SurveyDoc; mobiliserName?: string }[],
+  /** Live community names; falls back to the seed list when not supplied. */
+  labels?: Record<string, string>
 ): Promise<Buffer> {
+  const labelOf = (code: string) =>
+    labels?.[code] || SETTLEMENT_BY_CODE[code]?.label || code;
   const wb = new ExcelJS.Workbook();
   wb.creator = "Janman Survey";
 
@@ -160,8 +164,7 @@ export async function buildSurveyWorkbook(
     const d = survey.data || {};
     const row: Record<string, unknown> = {
       hh: survey.householdId,
-      settlement:
-        SETTLEMENT_BY_CODE[survey.settlementCode]?.label || survey.settlementCode,
+      settlement: labelOf(survey.settlementCode),
       mob: mobiliserName || "",
       mobcode: survey.mobiliserCode || "",
       status: survey.status,
@@ -233,8 +236,7 @@ export async function buildSurveyWorkbook(
 
       const row: Record<string, unknown> = {
         hh: survey.householdId,
-        settlement:
-          SETTLEMENT_BY_CODE[survey.settlementCode]?.label || survey.settlementCode,
+        settlement: labelOf(survey.settlementCode),
         mob: mobiliserName || "",
         date: (d.survey_date as string) || fmtDate(survey.createdAt).slice(0, 10),
       };

@@ -2,6 +2,7 @@ import { handleError, requireRoles } from "@/lib/api";
 import { surveysCol } from "@/lib/models";
 import { buildSurveyFilter, attachMobiliserNames } from "@/lib/surveys";
 import { buildSurveyWorkbook } from "@/lib/export";
+import { settlementLabels } from "@/lib/settlements";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,7 @@ export async function GET(req: Request) {
       .toArray();
 
     const rows = await attachMobiliserNames(docs);
-    const buf = await buildSurveyWorkbook(rows);
+    const buf = await buildSurveyWorkbook(rows, await settlementLabels());
     const date = new Date().toISOString().slice(0, 10);
 
     return new Response(new Uint8Array(buf), {

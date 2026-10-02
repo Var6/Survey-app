@@ -9,7 +9,7 @@ import {
   type SurveyStatus,
 } from "@/lib/models";
 import { publicSurvey } from "@/lib/serialize";
-import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
+import { getSettlement, settlementLabels } from "@/lib/settlements";
 import { frappeConfigured, syncSurveyById } from "@/lib/frappe";
 import { upsertCasesForSurvey } from "@/lib/cases/store";
 
@@ -107,8 +107,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     let householdId = survey.householdId;
     const newCode = body.settlementCode || (data.settlement_name as string) || "";
     if (newCode && newCode !== survey.settlementCode) {
-      const settlement = SETTLEMENT_BY_CODE[newCode];
-      if (!settlement) return json({ error: "Select a valid settlement" }, 400);
+      const settlement = await getSettlement(newCode);
+      if (!settlement) return json({ error: "Select a valid community" }, 400);
       const seq = await nextSequence(`hh:${newCode}`);
       householdId = `${settlement.hhPrefix}-${survey.mobiliserCode || "XX"}-${String(
         seq
@@ -148,7 +148,10 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       void upsertCasesForSurvey(updated).catch(() => {});
     }
 
-    return json({ survey: publicSurvey(updated, {}) });
+    const labels = await settlementLabels();
+    return json({
+      survey: publicSurvey(updated, { settlementLabel: labels[updated.settlementCode] }),
+    });
   } catch (e) {
     return handleError(e);
   }

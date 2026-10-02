@@ -286,6 +286,27 @@ export const MONTHLY_SECTIONS: Section[] = [
     ],
   },
   {
+    id: "P",
+    title: { en: "Group photos & documentation" },
+    items: [
+      {
+        qid: "photos_drive_link",
+        name: "photos_drive_link",
+        label: { en: "Google Drive folder link for this month's group photos" },
+        type: "text",
+        note: "Set the folder to “Anyone with the link can view” so the team and funder can open it.",
+      },
+      {
+        qid: "photos_activities",
+        name: "photos_activities",
+        label: {
+          en: "Which meetings or activities the photos cover — one per line, with date and settlement (add a separate link if a group has its own folder)",
+        },
+        type: "textarea",
+      },
+    ],
+  },
+  {
     id: "J",
     title: { en: "Learning & next-month plan" },
     items: [

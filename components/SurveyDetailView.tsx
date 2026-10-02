@@ -6,7 +6,6 @@ import {
   type Field,
   type RepeatGroup,
 } from "@/lib/questionnaire";
-import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
 import { formatDate } from "@/lib/client";
 import { Badge } from "@/components/ui";
 import type { SurveyDetail } from "@/lib/surveys";
@@ -107,7 +106,6 @@ const cardClass =
 /** Full read-only render of one survey — screen and print/PDF friendly. */
 export default function SurveyDetailView({ survey }: { survey: SurveyDetail }) {
   const d = survey.data;
-  const settlement = SETTLEMENT_BY_CODE[survey.settlementCode];
 
   return (
     <div className="space-y-4 print:space-y-3 print:text-black">
@@ -122,7 +120,7 @@ export default function SurveyDetailView({ survey }: { survey: SurveyDetail }) {
               {(d.head_name as string) || "—"}
             </h2>
             <p className="text-sm text-zinc-500">
-              {survey.householdId} · {settlement?.label || survey.settlementCode}
+              {survey.householdId} · {survey.settlementLabel}
             </p>
           </div>
           <div className="flex flex-col items-end gap-1">

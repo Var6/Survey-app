@@ -10,7 +10,7 @@ import {
 } from "@/lib/models";
 import { buildSurveyFilter, attachMobiliserNames } from "@/lib/surveys";
 import { publicSurvey } from "@/lib/serialize";
-import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
+import { getSettlement, settlementLabels } from "@/lib/settlements";
 import { FORM_VERSION } from "@/lib/questionnaire";
 import { frappeConfigured, syncSurveyById } from "@/lib/frappe";
 import { upsertCasesForSurvey } from "@/lib/cases/store";
@@ -30,9 +30,13 @@ export async function GET(req: Request) {
     ]);
 
     const withNames = await attachMobiliserNames(docs);
+    const labels = await settlementLabels();
     return json({
       surveys: withNames.map(({ survey, mobiliserName }) =>
-        publicSurvey(survey, { mobiliserName })
+        publicSurvey(survey, {
+          mobiliserName,
+          settlementLabel: labels[survey.settlementCode],
+        })
       ),
       total,
       limit,
@@ -67,9 +71,9 @@ export async function POST(req: Request) {
 
     const settlementCode =
       body.settlementCode || (data.settlement_name as string) || "";
-    const settlement = SETTLEMENT_BY_CODE[settlementCode];
+    const settlement = await getSettlement(settlementCode);
     if (!settlement) {
-      return json({ error: "Select a valid settlement" }, 400);
+      return json({ error: "Select a valid community" }, 400);
     }
 
     // Resolve the project. Office roles (director / PM / MIS / accountant)
@@ -150,6 +154,7 @@ export async function POST(req: Request) {
       {
         survey: publicSurvey({ ...doc, _id: res.insertedId }, {
           mobiliserName: user.name,
+          settlementLabel: settlement.label,
         }),
       },
       201

@@ -3,7 +3,7 @@ import { currentUser } from "@/lib/auth";
 import { PageTitle } from "@/components/ui";
 import SurveyForm from "@/components/SurveyForm";
 import { projectsCol } from "@/lib/models";
-import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+import { settlementOptions } from "@/lib/settlements";
 import { loadResumableSurvey } from "@/lib/surveys";
 
 export const metadata = { title: "New survey · Director" };
@@ -30,10 +30,7 @@ export default async function DirectorNewSurveyPage({
   const resume = resumeId ? await loadResumableSurvey(resumeId, user) : null;
 
   const projects = await getProjects();
-  const settlementOptions = SETTLEMENTS.map((s) => ({
-    code: s.code,
-    label: s.label,
-  }));
+  const options = await settlementOptions();
 
   return (
     <div>
@@ -48,7 +45,7 @@ export default async function DirectorNewSurveyPage({
       />
       <SurveyForm
         role="director"
-        settlementOptions={settlementOptions}
+        settlementOptions={options}
         projects={projects}
         resume={resume ?? undefined}
       />

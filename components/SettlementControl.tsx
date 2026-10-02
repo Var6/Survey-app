@@ -1,6 +1,6 @@
 "use client";
 
-import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+import { useSettlements } from "@/lib/useSettlements";
 import { inputClass } from "@/components/ui";
 import type { SettlementStatus } from "@/lib/models";
 
@@ -26,7 +26,8 @@ export default function SettlementControl({
   readOnly?: boolean;
 }) {
   const byCode = new Map(value.map((s) => [s.code, s]));
-  const rows: SettlementStatus[] = SETTLEMENTS.map(
+  const { settlements } = useSettlements();
+  const rows: SettlementStatus[] = settlements.map(
     (s) => byCode.get(s.code) || { code: s.code, status: "green" }
   );
 
@@ -37,7 +38,7 @@ export default function SettlementControl({
   return (
     <div className="space-y-2">
       {rows.map((r) => {
-        const label = SETTLEMENTS.find((s) => s.code === r.code)?.label || r.code;
+        const label = settlements.find((s) => s.code === r.code)?.label || r.code;
         const needsReason = r.status === "amber" || r.status === "red";
         return (
           <div key={r.code} className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">

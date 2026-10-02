@@ -1,8 +1,8 @@
 import { ObjectId } from "mongodb";
-import { json, handleError, requireRoles } from "@/lib/api";
+import { json, handleError, requireRoles, readJson } from "@/lib/api";
 import { monthlyReportsCol, usersCol, ensureIndexes, type MonthlyReportDoc } from "@/lib/models";
 import { publicMonthlyReport } from "@/lib/serialize";
-import { monthOf, computeMonthlyDashboard } from "@/lib/monthly/dashboard";
+import { monthFromKey, computeMonthlyDashboard } from "@/lib/monthly/dashboard";
 import { variantForRole, monthlyReportId } from "@/lib/monthly/variants";
 import { buildMonthlyFilter } from "@/lib/monthly/query";
 import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
@@ -42,13 +42,17 @@ export async function GET(req: Request) {
  * Programme Manager, Community Mobiliser or MIS Supervisor. Each author gets
  * their own document for the month.
  */
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const user = await requireRoles("programme_manager", "cm", "mis");
     const variant = variantForRole(user.role);
     if (!variant) return json({ error: "No monthly report for this role" }, 403);
     await ensureIndexes();
-    const { monthStart, monthEnd, year, month } = monthOf(new Date());
+
+    // A monthly report covers a finished month, so the default is the month
+    // that just ended; the author can pick another month explicitly.
+    const body = await readJson<{ month?: string }>(req).catch(() => ({ month: undefined }));
+    const { monthStart, monthEnd, year, month } = monthFromKey(body?.month);
     // CM reports are per-mobiliser, so their id carries the mobiliser code.
     const suffix =
       variant.key === "cm" ? user.mobiliserCode || String(user._id).slice(-4) : undefined;

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { PageTitle } from "@/components/ui";
 import SurveyForm from "@/components/SurveyForm";
-import { SETTLEMENTS, SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
+import { settlementOptions } from "@/lib/settlements";
 import { loadResumableSurvey } from "@/lib/surveys";
 
 export const metadata = { title: "New survey" };
@@ -18,14 +18,12 @@ export default async function NewSurveyPage({
   const { resume: resumeId } = await searchParams;
   const resume = resumeId ? await loadResumableSurvey(resumeId, user) : null;
 
-  const assigned = (user.communities || [])
-    .map((c) => SETTLEMENT_BY_CODE[c])
-    .filter(Boolean)
-    .map((s) => ({ code: s!.code, label: s!.label }));
-
-  const settlementOptions = assigned.length
-    ? assigned
-    : SETTLEMENTS.map((s) => ({ code: s.code, label: s.label }));
+  // Live community list; a mobiliser with assigned communities sees only those.
+  const all = await settlementOptions();
+  const assigned = (user.communities || []).length
+    ? all.filter((s) => (user.communities || []).includes(s.code))
+    : [];
+  const options = assigned.length ? assigned : all;
 
   return (
     <div>
@@ -40,7 +38,7 @@ export default async function NewSurveyPage({
       />
       <SurveyForm
         role="cm"
-        settlementOptions={settlementOptions}
+        settlementOptions={options}
         mobiliserCode={user.mobiliserCode || undefined}
         mobiliserName={user.name}
         resume={resume ?? undefined}

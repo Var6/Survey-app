@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/client";
 import { Card, Empty, Badge, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
-import { SETTLEMENTS, MOBILISER_CODES } from "@/lib/questionnaire/settlements";
+import { MOBILISER_CODES } from "@/lib/questionnaire/settlements";
+import { useSettlements } from "@/lib/useSettlements";
 
 interface User {
   id: string;
@@ -42,6 +43,7 @@ export default function UsersClient({
   /** MIS onboards staff but cannot create or edit Director accounts. */
   canManageDirectors?: boolean;
 } = {}) {
+  const { settlements: settlementList } = useSettlements();
   const roleOptions = canManageDirectors
     ? ROLE_OPTIONS
     : ROLE_OPTIONS.filter((r) => r.value !== "director");
@@ -237,7 +239,7 @@ export default function UsersClient({
                 <div>
                   <label className={labelClass}>Assigned settlements</label>
                   <div className="grid grid-cols-2 gap-1.5">
-                    {SETTLEMENTS.map((s) => (
+                    {settlementList.map((s) => (
                       <label key={s.code} className="flex items-center gap-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm dark:border-zinc-800">
                         <input type="checkbox" checked={communities.includes(s.code)} onChange={() => toggleCommunity(s.code)} />
                         <span className="text-zinc-700 dark:text-zinc-300">{s.label}</span>
@@ -279,7 +281,7 @@ export default function UsersClient({
                       ? ` · ${projectName(u.projectId)} · ${
                           u.communities.length
                             ? u.communities
-                                .map((c) => SETTLEMENTS.find((s) => s.code === c)?.label || c)
+                                .map((c) => settlementList.find((s) => s.code === c)?.label || c)
                                 .join(", ")
                             : "no settlements"
                         }`
@@ -347,6 +349,7 @@ function UserEditForm({
   onSaved: (msg: string) => void;
   onError: (msg: string) => void;
 }) {
+  const { settlements: settlementList } = useSettlements();
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [phone, setPhone] = useState(user.phone || "");
@@ -433,7 +436,7 @@ function UserEditForm({
           <div>
             <label className={labelClass}>Assigned settlements</label>
             <div className="grid grid-cols-2 gap-1.5">
-              {SETTLEMENTS.map((s) => (
+              {settlementList.map((s) => (
                 <label key={s.code} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm dark:border-zinc-800 dark:bg-zinc-950">
                   <input type="checkbox" checked={communities.includes(s.code)} onChange={() => toggleCommunity(s.code)} />
                   <span className="text-zinc-700 dark:text-zinc-300">{s.label}</span>

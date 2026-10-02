@@ -149,6 +149,27 @@ export const MIS_MONTHLY_SECTIONS: Section[] = [
     ],
   },
   {
+    id: "P",
+    title: { en: "Photos & documentation" },
+    items: [
+      {
+        qid: "MISM-P01",
+        name: "photos_drive_link",
+        label: { en: "Google Drive folder link for this month's photos and evidence" },
+        type: "text",
+        note: "Set the folder to “Anyone with the link can view” so the team can open it.",
+      },
+      {
+        qid: "MISM-P02",
+        name: "photos_activities",
+        label: {
+          en: "What the folder contains — one per line, with date and settlement (add a separate link if a set has its own folder)",
+        },
+        type: "textarea",
+      },
+    ],
+  },
+  {
     id: "I",
     title: { en: "Next-month plan" },
     items: [

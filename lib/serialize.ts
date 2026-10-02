@@ -244,7 +244,7 @@ export type PublicCase = ReturnType<typeof publicCase>;
 
 export function publicSurvey(
   s: SurveyDoc,
-  extra?: { mobiliserName?: string }
+  extra?: { mobiliserName?: string; settlementLabel?: string }
 ) {
   const settlement = SETTLEMENT_BY_CODE[s.settlementCode];
   const d = s.data || {};
@@ -252,7 +252,8 @@ export function publicSurvey(
     id: String(s._id),
     householdId: s.householdId,
     settlementCode: s.settlementCode,
-    settlementLabel: settlement?.label ?? s.settlementCode,
+    // Prefer the live community name; fall back to the seed list, then the code.
+    settlementLabel: extra?.settlementLabel ?? settlement?.label ?? s.settlementCode,
     mobiliserId: String(s.mobiliserId),
     mobiliserCode: s.mobiliserCode ?? null,
     mobiliserName: extra?.mobiliserName ?? null,

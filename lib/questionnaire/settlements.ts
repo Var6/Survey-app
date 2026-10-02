@@ -1,4 +1,9 @@
-/** The 12 informal settlements, with backend code, display label and HH-ID prefix. */
+/**
+ * Seed list for the communities. Once the app has run, the live list lives in
+ * the `settlements` collection and is managed in the app (create / rename /
+ * assign) — see lib/settlements.ts. This array only seeds a fresh database and
+ * acts as a fallback for code paths that cannot await a database read.
+ */
 export interface Settlement {
   code: string; // backend choice code
   label: string; // display label
@@ -6,7 +11,7 @@ export interface Settlement {
 }
 
 export const SETTLEMENTS: Settlement[] = [
-  { code: "refugee_colony", label: "Basgama/Refuge Colony", hhPrefix: "REF" },
+  { code: "refugee_colony", label: "Housing Board", hhPrefix: "REF" },
   { code: "loot_mohalla", label: "Loot Mohalla", hhPrefix: "LOO" },
   { code: "singhia_tola", label: "Kalijaan 2/Singhia Tola", hhPrefix: "SIN" },
   { code: "buxa_ghat", label: "Buxa Ghat", hhPrefix: "BUX" },
@@ -15,7 +20,7 @@ export const SETTLEMENTS: Settlement[] = [
   { code: "khatal_patti", label: "Sriram Tola", hhPrefix: "SRI" },
   { code: "dhangar_tola", label: "Anoop Nagar/Dhangar Tola", hhPrefix: "DHA" },
   { code: "ambedkar_nagar", label: "Raja Tola/Ambedkar Nagar", hhPrefix: "AMB" },
-  { code: "damka_tola", label: "Hazirganj/Damka Tola", hhPrefix: "DAM" },
+  { code: "damka_tola", label: "Bargeshnagar", hhPrefix: "DAM" },
   { code: "shanti_kabra", label: "Shanti Kabra", hhPrefix: "SHA" },
   { code: "kheruganj", label: "Kheruganj", hhPrefix: "KHE" },
 ];

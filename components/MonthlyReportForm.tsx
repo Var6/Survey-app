@@ -7,6 +7,7 @@ import {
   MONTHLY_VARIANTS,
   type MonthlyVariantKey,
 } from "@/lib/monthly/variants";
+import { defaultReportMonth, monthLabel, recentMonths } from "@/lib/monthly/month";
 import type { SettlementStatus } from "@/lib/models";
 import { Card, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import WeeklyDashboard from "@/components/WeeklyDashboard";
@@ -27,6 +28,7 @@ interface Report {
   data: Values;
   certification: Cert;
   directorComments: string | null;
+  submittedAt?: string | null;
 }
 
 function optLabel(o: Option) {
@@ -49,6 +51,7 @@ export default function MonthlyReportForm({
 }) {
   const variant = MONTHLY_VARIANTS[variantKey];
   const hi = variant.lang === "hi";
+  const [month, setMonth] = useState<string>(defaultReportMonth());
   const [report, setReport] = useState<Report | null>(null);
   const [values, setValues] = useState<Values>({});
   const [settlements, setSettlements] = useState<SettlementStatus[]>([]);
@@ -60,16 +63,28 @@ export default function MonthlyReportForm({
   const [issues, setIssues] = useState<string[]>([]);
 
   useEffect(() => {
-    apiFetch<{ report: Report }>("/api/monthly", { method: "POST", body: "{}" })
+    let alive = true;
+    setLoading(true);
+    setMsg(null);
+    setIssues([]);
+    apiFetch<{ report: Report }>("/api/monthly", {
+      method: "POST",
+      body: JSON.stringify({ month }),
+    })
       .then(({ report }) => {
+        if (!alive) return;
         setReport(report);
         setValues(report.data || {});
         setSettlements(report.settlements || []);
         setCert(report.certification || {});
+        setErr(null);
       })
-      .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false));
-  }, []);
+      .catch((e) => alive && setErr(e.message))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [month]);
 
   const editable = report?.status === "draft" || report?.status === "returned";
   const setValue = (n: string, v: unknown) => setValues((s) => ({ ...s, [n]: v }));
@@ -219,16 +234,33 @@ export default function MonthlyReportForm({
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-bold text-zinc-900 dark:text-zinc-50">{report.reportId}</p>
+          <p className="font-bold text-zinc-900 dark:text-zinc-50">
+            {hi ? "रिपोर्ट महीना" : "Reporting month"}: {monthLabel(month)}
+          </p>
           <p className="text-xs text-zinc-500">
-            {formatDate(report.monthStart)} – {formatDate(report.monthEnd)}
+            {report.reportId} · {formatDate(report.monthStart)} – {formatDate(report.monthEnd)}
+            {report.submittedAt ? ` · ${hi ? "जमा" : "submitted"} ${formatDate(report.submittedAt)}` : ""}
           </p>
         </div>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[report.status]}`}>
-          {report.status}
-        </span>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-zinc-500">{hi ? "महीना" : "Month"}</label>
+          <select
+            className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+          >
+            {recentMonths(6).map((m) => (
+              <option key={m} value={m}>
+                {monthLabel(m)}
+              </option>
+            ))}
+          </select>
+          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[report.status]}`}>
+            {report.status}
+          </span>
+        </div>
       </div>
 
       {report.status === "returned" && report.directorComments && (

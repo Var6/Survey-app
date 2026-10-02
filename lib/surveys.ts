@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import { surveysCol, usersCol, type SurveyDoc, type UserDoc } from "./models";
+import { settlementLabels } from "./settlements";
 
 /** Build a Mongo filter for surveys, scoping CMs to their own records. */
 export function buildSurveyFilter(
@@ -60,6 +61,7 @@ export interface SurveyDetail {
   id: string;
   householdId: string;
   settlementCode: string;
+  settlementLabel: string;
   mobiliserName?: string;
   mobiliserCode?: string;
   status: string;
@@ -99,10 +101,12 @@ export async function loadSurveyDetail(
   }
   const users = await usersCol();
   const mobiliser = await users.findOne({ _id: survey.mobiliserId });
+  const labels = await settlementLabels();
   return {
     id: String(survey._id),
     householdId: survey.householdId,
     settlementCode: survey.settlementCode,
+    settlementLabel: labels[survey.settlementCode] || survey.settlementCode,
     mobiliserName: mobiliser?.name,
     mobiliserCode: survey.mobiliserCode,
     status: survey.status,

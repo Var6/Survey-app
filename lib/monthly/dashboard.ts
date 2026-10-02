@@ -1,13 +1,25 @@
 import { casesCol } from "@/lib/models";
 import { computeDashboard } from "@/lib/weekly/dashboard";
 import { MODULE_LIST } from "@/lib/cases/modules";
+import { defaultReportMonth } from "./month";
+
+export { defaultReportMonth };
 
 /** Calendar-month bucket for a given date, plus the PMM-YYYY-MM report id.
  *  `reportId` is the Programme Manager's id; other variants build their own
  *  from `year`/`month` via monthlyReportId() in ./variants. */
+/** Month bucket for a "YYYY-MM" string; falls back to the default month. */
+export function monthFromKey(key?: string | null) {
+  const m = /^(\d{4})-(\d{2})$/.exec(key || "");
+  const base = m
+    ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 15))
+    : new Date(`${defaultReportMonth()}-15T00:00:00Z`);
+  return monthOf(base);
+}
+
 export function monthOf(date: Date) {
-  const y = date.getFullYear();
-  const m = date.getMonth();
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth();
   const monthStart = new Date(Date.UTC(y, m, 1, 0, 0, 0));
   const monthEnd = new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999));
   const reportId = `PMM-${y}-${String(m + 1).padStart(2, "0")}`;

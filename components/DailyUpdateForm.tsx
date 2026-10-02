@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { apiFetch } from "@/lib/client";
-import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+import { useSettlements } from "@/lib/useSettlements";
 import { inputClass, labelClass, btnPrimary } from "@/components/ui";
 
 /**
@@ -66,6 +66,7 @@ export default function DailyUpdateForm({
   onDone?: () => void;
 }) {
   const t = L[lang];
+  const { settlements: settlementList } = useSettlements();
   const todayIso = new Date().toISOString().slice(0, 10);
   const [reportDate, setReportDate] = useState(todayIso);
   const [onLeave, setOnLeave] = useState(false);
@@ -178,7 +179,7 @@ export default function DailyUpdateForm({
           {t.where} <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-2 gap-1.5">
-          {SETTLEMENTS.map((s) => (
+          {settlementList.map((s) => (
             <label
               key={s.code}
               className="flex items-center gap-2 rounded-lg border border-zinc-200 px-2 py-1.5 text-sm dark:border-zinc-800"

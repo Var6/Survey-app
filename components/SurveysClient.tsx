@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { apiFetch, formatDate } from "@/lib/client";
 import { Card, Empty, Badge, inputClass, btnGhost } from "@/components/ui";
-import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+import { useSettlements } from "@/lib/useSettlements";
 
 /** Path of the survey form for the area the list is shown in. */
 function formPath(pathname: string): string {
@@ -42,6 +42,7 @@ export default function SurveysClient({
   const isDirector = scope === "director" || scope === "mis";
   const canExport = isDirector;
   const pathname = usePathname();
+  const { settlements } = useSettlements(true);
   const [rows, setRows] = useState<SurveyRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -120,7 +121,7 @@ export default function SurveysClient({
           )}
           <select className={inputClass} value={settlement} onChange={(e) => setSettlement(e.target.value)}>
             <option value="">All settlements</option>
-            {SETTLEMENTS.map((s) => (
+            {settlements.map((s) => (
               <option key={s.code} value={s.code}>{s.label}</option>
             ))}
           </select>

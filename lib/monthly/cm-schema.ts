@@ -352,6 +352,31 @@ export const CM_MONTHLY_SECTIONS: Section[] = [
     ],
   },
   {
+    id: "P",
+    title: { en: "Group photos & documentation", hi: "ग्रुप फोटो और दस्तावेज़" },
+    items: [
+      {
+        qid: "CMM-P01",
+        name: "photos_drive_link",
+        label: {
+          en: "Google Drive folder link for this month's photos",
+          hi: "इस महीने की फोटो वाले Google Drive फोल्डर का लिंक",
+        },
+        type: "text",
+        note: "फोल्डर को 'Anyone with the link can view' पर सेट करें, वरना टीम फोटो नहीं देख पाएगी। / Set the folder to “Anyone with the link can view”.",
+      },
+      {
+        qid: "CMM-P02",
+        name: "photos_activities",
+        label: {
+          en: "Which meetings or activities do these photos cover? One per line, with date and settlement — add a separate link here if a group has its own folder.",
+          hi: "ये फोटो किन बैठकों/गतिविधियों की हैं? हर लाइन में एक — तारीख़ और बस्ती के साथ। किसी ग्रुप का अलग फोल्डर हो तो उसका लिंक भी यहाँ लिखें।",
+        },
+        type: "textarea",
+      },
+    ],
+  },
+  {
     id: "L",
     title: { en: "Next month's plan", hi: "अगले महीने की योजना" },
     items: [
