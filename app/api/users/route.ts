@@ -82,6 +82,20 @@ export async function POST(req: Request) {
       return json({ error: "A user with this email already exists" }, 409);
     }
 
+    // Mobiliser codes must be unique: they identify the person in household
+    // IDs (REF-M01-0001) and in monthly report IDs, so two people sharing one
+    // makes both ambiguous.
+    const mobiliserCode = role === "cm" ? body.mobiliserCode?.trim() : undefined;
+    if (mobiliserCode) {
+      const taken = await users.findOne({ mobiliserCode, role: "cm" });
+      if (taken) {
+        return json(
+          { error: `Mobiliser code ${mobiliserCode} is already used by ${taken.name}` },
+          409
+        );
+      }
+    }
+
     let projectId: ObjectId | undefined;
     if (role === "cm" && body.projectId) {
       try {
@@ -99,7 +113,7 @@ export async function POST(req: Request) {
       passwordHash: await hashPassword(password),
       phone: body.phone?.trim() || undefined,
       // CM-only fields
-      mobiliserCode: role === "cm" ? body.mobiliserCode?.trim() || undefined : undefined,
+      mobiliserCode: mobiliserCode || undefined,
       projectId,
       communities: role === "cm" && Array.isArray(body.communities) ? body.communities : [],
       active: true,

@@ -15,12 +15,13 @@ interface DailyReport {
   notes: string | null;
 }
 
-type Role = "cm" | "pm";
+type Role = "cm" | "pm" | "mis";
 type RType = "daily" | "weekly" | "monthly";
 
 const ROLE_LABEL: Record<Role, string> = {
   cm: "Community Mobiliser",
   pm: "Programme Manager",
+  mis: "Supervisor / MIS",
 };
 const RTYPE_LABEL: Record<RType, string> = {
   daily: "Daily field reports",
@@ -104,6 +105,12 @@ export default function ReportingHub({
             desc="Weekly and monthly accountability reports"
             onClick={() => setRole("pm")}
           />
+          <RoleCard
+            icon="grid"
+            title="Supervisor / MIS"
+            desc="Monthly data, quality and evidence reports"
+            onClick={() => setRole("mis")}
+          />
         </div>
       )}
 
@@ -111,7 +118,9 @@ export default function ReportingHub({
       {role && !type && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(role === "cm"
-            ? (["daily"] as RType[])
+            ? (["daily", "monthly"] as RType[])
+            : role === "mis"
+            ? (["monthly"] as RType[])
             : (["daily", "weekly", "monthly"] as RType[])
           ).map((t) => (
             <RoleCard
@@ -163,8 +172,14 @@ export default function ReportingHub({
         </div>
       )}
       {type === "weekly" && <WeeklyReviewClient readOnly={!canReview} />}
-      {type === "monthly" && <MonthlyReviewClient readOnly={!canReview} printBase={printBase} />}
-      {type === "daily" && role && <DailyCalendar role={role} />}
+      {type === "monthly" && (
+        <MonthlyReviewClient
+          readOnly={!canReview}
+          printBase={printBase}
+          authorRole={role === "pm" ? "programme_manager" : role ?? undefined}
+        />
+      )}
+      {type === "daily" && (role === "cm" || role === "pm") && <DailyCalendar role={role} />}
     </div>
   );
 }

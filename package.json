@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:seed": "MONGODB_URI=mongodb://127.0.0.1:27017 MONGODB_DB=janman_test node scripts/seed-test-db.js",
+    "test:dev": "MONGODB_URI=mongodb://127.0.0.1:27017 MONGODB_DB=janman_test next dev"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1089.0",

@@ -32,10 +32,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
 
     // CM and MIS monthlies are approved by the Programme Manager; the
     // Programme Manager's own monthly is approved by the Director.
+    // Each report has a designated reviewer (CM/MIS → Programme Manager,
+    // PM → Director). The Director can act on any of them, so a report is
+    // never stuck waiting on one person.
     const variant = variantForAuthorRole(doc.authorRole);
-    if (reviewer.role !== variant.reviewerRole) {
+    if (reviewer.role !== variant.reviewerRole && reviewer.role !== "director") {
       return json(
-        { error: `Only the ${variant.reviewerRole.replace("_", " ")} reviews this report` },
+        { error: `Only the ${variant.reviewerRole.replace("_", " ")} or the Director reviews this report` },
         403
       );
     }

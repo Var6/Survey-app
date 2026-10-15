@@ -47,7 +47,10 @@ export default function MonthlyReviewClient({
   scope,
   readOnly = false,
   printBase = "/director",
+  authorRole,
 }: {
+  /** Show only the reports written by this role. */
+  authorRole?: string;
   /** Area prefix for the print route, e.g. "/mis". */
   printBase?: string;
   /** Viewers who may read but not approve/return (e.g. MIS). */
@@ -69,6 +72,7 @@ export default function MonthlyReviewClient({
       const p = new URLSearchParams();
       if (status) p.set("status", status);
       if (scope) p.set("scope", scope);
+      if (authorRole) p.set("authorRole", authorRole);
       const qs = p.toString();
       const { reports } = await apiFetch<{ reports: Report[] }>(
         `/api/monthly${qs ? `?${qs}` : ""}`
@@ -79,7 +83,7 @@ export default function MonthlyReviewClient({
     } finally {
       setLoading(false);
     }
-  }, [status, scope]);
+  }, [status, scope, authorRole]);
   useEffect(() => {
     load();
   }, [load]);

@@ -53,13 +53,23 @@ export async function POST(req: Request) {
     // that just ended; the author can pick another month explicitly.
     const body = await readJson<{ month?: string }>(req).catch(() => ({ month: undefined }));
     const { monthStart, monthEnd, year, month } = monthFromKey(body?.month);
-    // CM reports are per-mobiliser, so their id carries the mobiliser code.
-    const suffix =
-      variant.key === "cm" ? user.mobiliserCode || String(user._id).slice(-4) : undefined;
-    const reportId = monthlyReportId(variant, year, month, suffix);
     const col = await monthlyReportsCol();
 
-    const existing = await col.findOne({ reportId });
+    // CM reports are per-mobiliser, so their id carries the mobiliser code.
+    // Two mobilisers have shared a code before now, which would hand one of
+    // them the other's report, so the author is always confirmed: if the id is
+    // already taken by someone else, this author gets their own distinct id.
+    const idTail = String(user._id).slice(-4);
+    const suffix = variant.key === "cm" ? user.mobiliserCode || idTail : undefined;
+    let reportId = monthlyReportId(variant, year, month, suffix);
+
+    let existing = await col.findOne({ reportId });
+    if (existing && String(existing.programmeManagerId) !== String(user._id)) {
+      // Somebody else owns that id — fall back to one that is unique to this user.
+      reportId = monthlyReportId(variant, year, month, `${suffix ?? ""}${suffix ? "-" : ""}${idTail}`);
+      existing = await col.findOne({ reportId });
+    }
+
     if (existing) {
       if (existing.status === "draft" || existing.status === "returned") {
         const dashboard = await computeMonthlyDashboard(monthStart, monthEnd);

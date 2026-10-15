@@ -65,7 +65,23 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       set.role = body.role;
     }
     if (typeof body.phone === "string") set.phone = body.phone.trim();
-    if (typeof body.mobiliserCode === "string") set.mobiliserCode = body.mobiliserCode.trim();
+    if (typeof body.mobiliserCode === "string") {
+      const code = body.mobiliserCode.trim();
+      if (code) {
+        const taken = await users.findOne({
+          _id: { $ne: _id },
+          role: "cm",
+          mobiliserCode: code,
+        });
+        if (taken) {
+          return json(
+            { error: `Mobiliser code ${code} is already used by ${taken.name}` },
+            409
+          );
+        }
+      }
+      set.mobiliserCode = code;
+    }
     if (Array.isArray(body.communities)) set.communities = body.communities;
     if (typeof body.active === "boolean") set.active = body.active;
     if (body.projectId === null) {
