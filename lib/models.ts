@@ -86,6 +86,8 @@ export interface ProjectDoc {
 
 export interface SyncState {
   status: SyncStatus;
+  /** Family Member records pushed alongside the household. */
+  members?: { synced: number; failed: number };
   frappeId?: string; // e.g. "HHD11736" — the created Frappe doc name
   attempts: number;
   lastAttemptAt?: Date;

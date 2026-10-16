@@ -9,6 +9,7 @@ const NAV: ShellNavGroup[] = [
     items: [
       { href: "/director/surveys", label: "Surveys", icon: "survey" },
       { href: "/director/communities", label: "Communities", icon: "grid" },
+      { href: "/director/frappe", label: "Funder sync", icon: "report" },
       { href: "/director/reports", label: "Reports", icon: "report" },
       { href: "/director/weekly", label: "Weekly reports", icon: "calendar" },
     ],
