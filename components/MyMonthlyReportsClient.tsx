@@ -62,7 +62,7 @@ function MyMonthlyReportsList({ basePath, variantKey }: Props) {
   useEffect(() => {
     let alive = true;
     // The API already scopes cm/mis/pm callers to their own reports.
-    apiFetch<{ reports: Row[] }>("/api/monthly")
+    apiFetch<{ reports: Row[] }>("/api/monthly?mine=1")
       .then(({ reports }) => {
         if (!alive) return;
         setRows(

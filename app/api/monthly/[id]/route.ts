@@ -29,7 +29,11 @@ const isOwner = (user: UserDoc, doc: MonthlyReportDoc) =>
  * Community Mobilisers and the MIS Supervisor read only their own.
  */
 function canRead(user: UserDoc, doc: MonthlyReportDoc): boolean {
-  if (user.role === "director" || user.role === "programme_manager") return true;
+  // Director, Programme Manager and MIS read every report; a mobiliser only
+  // their own. Keep in step with lib/monthly/query.ts and lib/monthly/load.ts.
+  if (user.role === "director" || user.role === "programme_manager" || user.role === "mis") {
+    return true;
+  }
   return isOwner(user, doc);
 }
 

@@ -138,6 +138,13 @@ export default function MonthlyReportForm({
       setErr(data.error || "Submit failed");
       return;
     }
+    // Back to the list, which shows the success flash — the user should not
+    // be left staring at their own filled-in, now locked, form. Navigate
+    // before touching local state, or the locked-form notice flashes first.
+    if (basePath) {
+      router.push(`${basePath}?submitted=1`);
+      return;
+    }
     setReport(data.report as Report);
     setMsg(
       variant.reviewerRole === "director"
@@ -146,9 +153,6 @@ export default function MonthlyReportForm({
         ? "Programme Manager को जमा हो गया ✓"
         : "Submitted to Programme Manager ✓"
     );
-    // Back to the list, which shows the success flash — the user should not
-    // be left staring at their own filled-in, now locked, form.
-    if (basePath) router.push(`${basePath}?submitted=1`);
   }
 
   const backLink = basePath ? (
@@ -263,14 +267,16 @@ export default function MonthlyReportForm({
     return (
       <>
         {backLink}
-        <p className="text-sm text-zinc-500">Loading…</p>
+        <p className="text-sm text-zinc-500">{hi ? "लोड हो रहा है…" : "Loading…"}</p>
       </>
     );
   if (!report)
     return (
       <>
         {backLink}
-        <p className="text-sm text-red-600">{err || "Could not open the report."}</p>
+        <p className="text-sm text-red-600">
+          {err || (hi ? "रिपोर्ट नहीं खुल सकी।" : "Could not open the report.")}
+        </p>
       </>
     );
 
@@ -292,11 +298,14 @@ export default function MonthlyReportForm({
           value={month}
           onChange={(e) => setMonth(e.target.value)}
         >
-          {recentMonths(6).map((m) => (
-            <option key={m} value={m}>
-              {monthLabel(m)}
-            </option>
-          ))}
+          {[...new Set([month, ...recentMonths(6)])]
+            .sort()
+            .reverse()
+            .map((m) => (
+              <option key={m} value={m}>
+                {monthLabel(m)}
+              </option>
+            ))}
         </select>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[report.status]}`}>
           {report.status}

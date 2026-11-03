@@ -9,7 +9,9 @@
  * 5th), so opening the form in October should offer September.
  */
 export function defaultReportMonth(now: Date = new Date()): string {
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+  // UTC throughout, like monthKey(), so the two can never disagree at a
+  // month boundary.
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   d.setUTCMonth(d.getUTCMonth() - 1);
   return monthKey(d);
 }
@@ -35,4 +37,9 @@ export function recentMonths(n = 6, now: Date = new Date()): string[] {
     d.setUTCMonth(d.getUTCMonth() - 1);
   }
   return out;
+}
+
+/** "YYYY-MM" with a real month number — rejects 2026-00 and 2026-13. */
+export function isMonthKey(v: unknown): v is string {
+  return typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 }

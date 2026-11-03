@@ -1,4 +1,5 @@
 import type { UserDoc } from "@/lib/models";
+import { isMonthKey } from "./month";
 
 /**
  * One filter rule for monthly reports, shared by the on-screen list, the
@@ -15,9 +16,14 @@ export function buildMonthlyFilter(
 ): Record<string, unknown> {
   const filter: Record<string, unknown> = {};
 
-  // The MIS Supervisor reads every report (they own reporting and data
-  // quality) but cannot approve any — that guard lives in the review route.
-  if (user.role === "cm") {
+  // "My reports" screens pass mine=1: only the caller's own, whatever their
+  // role — the MIS Supervisor can read everything elsewhere, but their own
+  // list must not fill up with other people's reports.
+  if (params.get("mine") === "1") {
+    filter.programmeManagerId = user._id;
+  } else if (user.role === "cm") {
+    // The MIS Supervisor reads every report (they own reporting and data
+    // quality) but cannot approve any — that guard lives in the review route.
     filter.programmeManagerId = user._id;
   } else if (user.role === "programme_manager") {
     if (params.get("scope") === "review") {
@@ -34,7 +40,7 @@ export function buildMonthlyFilter(
   if (status) filter.status = status;
 
   const month = params.get("month"); // YYYY-MM
-  if (month && /^\d{4}-\d{2}$/.test(month)) {
+  if (isMonthKey(month)) {
     const [y, m] = month.split("-").map(Number);
     filter.monthStart = {
       $gte: new Date(Date.UTC(y, m - 1, 1)),

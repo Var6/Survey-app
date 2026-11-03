@@ -10,7 +10,7 @@ export { defaultReportMonth };
  *  from `year`/`month` via monthlyReportId() in ./variants. */
 /** Month bucket for a "YYYY-MM" string; falls back to the default month. */
 export function monthFromKey(key?: string | null) {
-  const m = /^(\d{4})-(\d{2})$/.exec(key || "");
+  const m = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(key || "");
   const base = m
     ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, 15))
     : new Date(`${defaultReportMonth()}-15T00:00:00Z`);

@@ -4,6 +4,7 @@ import { PageTitle } from "@/components/ui";
 import MonthlyReportForm from "@/components/MonthlyReportForm";
 import { MONTHLY_VARIANTS } from "@/lib/monthly/variants";
 import { suggestOpenMonth } from "@/lib/monthly/load";
+import { isMonthKey } from "@/lib/monthly/month";
 
 export const metadata = { title: "New monthly report · MIS" };
 
@@ -18,7 +19,7 @@ export default async function MisNewMonthlyPage({
   // ?month=YYYY-MM reopens a chosen month; otherwise the first month still open.
   const { month } = await searchParams;
   const initialMonth =
-    typeof month === "string" && /^\d{4}-\d{2}$/.test(month)
+    isMonthKey(month)
       ? month
       : await suggestOpenMonth(user._id!);
 
