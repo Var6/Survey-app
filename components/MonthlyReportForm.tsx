@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiFetch, formatDate } from "@/lib/client";
 import { labelText, isFieldVisible, type Field, type Option } from "@/lib/questionnaire";
 import {
@@ -44,14 +46,24 @@ const STATUS_CLS: Record<string, string> = {
 
 export default function MonthlyReportForm({
   variantKey = "pm",
+  basePath,
+  initialMonth,
 }: {
   /** Which monthly report this is — picks the questions, certification and
    *  submit rules. Defaults to the Programme Manager's report. */
   variantKey?: MonthlyVariantKey;
+  /** The author's list page, e.g. "/cm/monthly". When set the form is the
+   *  "new report" step of that list: a back link, a notice (not a locked
+   *  form) when the month is already filed, and a return to the list once
+   *  submitted. Without it the form behaves as before. */
+  basePath?: string;
+  /** Month to open on, "YYYY-MM". Defaults to the month that just finished. */
+  initialMonth?: string;
 }) {
   const variant = MONTHLY_VARIANTS[variantKey];
   const hi = variant.lang === "hi";
-  const [month, setMonth] = useState<string>(defaultReportMonth());
+  const router = useRouter();
+  const [month, setMonth] = useState<string>(initialMonth ?? defaultReportMonth());
   const [report, setReport] = useState<Report | null>(null);
   const [values, setValues] = useState<Values>({});
   const [settlements, setSettlements] = useState<SettlementStatus[]>([]);
@@ -127,8 +139,26 @@ export default function MonthlyReportForm({
       return;
     }
     setReport(data.report as Report);
-    setMsg("Submitted to Director ✓");
+    setMsg(
+      variant.reviewerRole === "director"
+        ? "Submitted to Director ✓"
+        : hi
+        ? "Programme Manager को जमा हो गया ✓"
+        : "Submitted to Programme Manager ✓"
+    );
+    // Back to the list, which shows the success flash — the user should not
+    // be left staring at their own filled-in, now locked, form.
+    if (basePath) router.push(`${basePath}?submitted=1`);
   }
+
+  const backLink = basePath ? (
+    <Link
+      href={basePath}
+      className="mb-3 inline-block text-sm font-medium text-teal-700 hover:underline dark:text-teal-400"
+    >
+      {hi ? "← मेरी रिपोर्ट" : "← Back to my reports"}
+    </Link>
+  ) : null;
 
   function renderField(field: Field) {
     if (!isFieldVisible(field, values)) return null;
@@ -229,39 +259,89 @@ export default function MonthlyReportForm({
     );
   }
 
-  if (loading) return <p className="text-sm text-zinc-500">Loading…</p>;
-  if (!report) return <p className="text-sm text-red-600">{err || "Could not open the report."}</p>;
+  if (loading)
+    return (
+      <>
+        {backLink}
+        <p className="text-sm text-zinc-500">Loading…</p>
+      </>
+    );
+  if (!report)
+    return (
+      <>
+        {backLink}
+        <p className="text-sm text-red-600">{err || "Could not open the report."}</p>
+      </>
+    );
+
+  const header = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p className="font-bold text-zinc-900 dark:text-zinc-50">
+          {hi ? "रिपोर्ट महीना" : "Reporting month"}: {monthLabel(month)}
+        </p>
+        <p className="text-xs text-zinc-500">
+          {report.reportId} · {formatDate(report.monthStart)} – {formatDate(report.monthEnd)}
+          {report.submittedAt ? ` · ${hi ? "जमा" : "submitted"} ${formatDate(report.submittedAt)}` : ""}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-zinc-500">{hi ? "महीना" : "Month"}</label>
+        <select
+          className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          value={month}
+          onChange={(e) => setMonth(e.target.value)}
+        >
+          {recentMonths(6).map((m) => (
+            <option key={m} value={m}>
+              {monthLabel(m)}
+            </option>
+          ))}
+        </select>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[report.status]}`}>
+          {report.status}
+        </span>
+      </div>
+    </div>
+  );
+
+  // On the "new report" step a filed month is a dead end: say so and point at
+  // the read-only view rather than render every field locked. The month
+  // picker stays so they can move on to a month that is still open.
+  if (basePath && !editable) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-5">
+        {backLink}
+        {header}
+        <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5 text-sm text-teal-900 dark:border-teal-900 dark:bg-teal-950/40 dark:text-teal-200">
+          <p className="font-semibold">
+            {hi
+              ? "इस महीने की रिपोर्ट पहले ही जमा हो चुकी है।"
+              : "This month's report is already submitted."}
+          </p>
+          <p className="mt-1">
+            <Link
+              href={`${basePath}/${report.id}`}
+              className="font-semibold underline underline-offset-2"
+            >
+              {hi ? "देखें" : "View it"}
+            </Link>
+            <span className="text-teal-800/80 dark:text-teal-300/80">
+              {" · "}
+              {hi
+                ? "नई रिपोर्ट के लिए ऊपर दूसरा महीना चुनें।"
+                : "Pick another month above to start a new one."}
+            </span>
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-bold text-zinc-900 dark:text-zinc-50">
-            {hi ? "रिपोर्ट महीना" : "Reporting month"}: {monthLabel(month)}
-          </p>
-          <p className="text-xs text-zinc-500">
-            {report.reportId} · {formatDate(report.monthStart)} – {formatDate(report.monthEnd)}
-            {report.submittedAt ? ` · ${hi ? "जमा" : "submitted"} ${formatDate(report.submittedAt)}` : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-zinc-500">{hi ? "महीना" : "Month"}</label>
-          <select
-            className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          >
-            {recentMonths(6).map((m) => (
-              <option key={m} value={m}>
-                {monthLabel(m)}
-              </option>
-            ))}
-          </select>
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${STATUS_CLS[report.status]}`}>
-            {report.status}
-          </span>
-        </div>
-      </div>
+      {backLink}
+      {header}
 
       {report.status === "returned" && report.directorComments && (
         <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
