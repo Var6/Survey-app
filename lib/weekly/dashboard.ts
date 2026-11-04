@@ -39,6 +39,8 @@ export async function computeDashboard(weekStart: Date, weekEnd: Date) {
     followupHouseholds,
     pwd,
     widow,
+    pregnantWomen,
+    mothersWithNewborn,
   ] = await Promise.all([
     surveys.countDocuments(inWeek),
     surveys.countDocuments({}),
@@ -54,6 +56,15 @@ export async function computeDashboard(weekStart: Date, weekEnd: Date) {
     }),
     surveys.countDocuments({ "data.has_pwd_member": "yes" }),
     surveys.countDocuments({ "data.has_widow_single_woman": "yes" }),
+    // Pregnant and new mothers are different groups (section H asks the month).
+    surveys.countDocuments({
+      "data.has_pregnant_or_lactating": "yes",
+      "data.pregnancy_month": { $in: ["m1_3", "m4_6", "m7_9"] },
+    }),
+    surveys.countDocuments({
+      "data.has_pregnant_or_lactating": "yes",
+      "data.pregnancy_month": "delivered_recently",
+    }),
   ]);
 
   const settlementsCovered = (await surveys.distinct("settlementCode", inWeek)).length;
@@ -125,6 +136,8 @@ export async function computeDashboard(weekStart: Date, weekEnd: Date) {
     followupHouseholds,
     urgentHealth,
     pregnant,
+    pregnantWomen,
+    mothersWithNewborn,
     entitlementGaps,
     pwd,
     widow,

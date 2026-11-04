@@ -19,6 +19,9 @@ interface Dash {
   followupHouseholds: number;
   urgentHealth: number;
   pregnant: number;
+  /** Split of `pregnant`; absent in reports saved before the split. */
+  pregnantWomen?: number;
+  mothersWithNewborn?: number;
   entitlementGaps: number;
   pwd: number;
   widow: number;
@@ -148,7 +151,7 @@ export default function WeeklyDashboard({
       </div>
 
       {/* Headline tiles */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <StatTile
           label={`Households surveyed (${periodLabel})`}
           value={d.householdsWeek}
@@ -165,12 +168,29 @@ export default function WeeklyDashboard({
           tone={d.urgentHealth > 0 ? "alert" : "normal"}
           href={link("/cases/health?status=open&priority=urgent")}
         />
-        <StatTile
-          label="Pregnant / new mothers"
-          value={d.pregnant}
-          tone={d.pregnant > 0 ? "warn" : "normal"}
-          href={link("/cases/maternal?status=open")}
-        />
+        {d.pregnantWomen !== undefined && d.mothersWithNewborn !== undefined ? (
+          <>
+            <StatTile
+              label="Pregnant women"
+              value={d.pregnantWomen}
+              tone={d.pregnantWomen > 0 ? "warn" : "normal"}
+              href={link("/cases/maternal?status=open&segment=pregnant")}
+            />
+            <StatTile
+              label="Mothers with newborn"
+              value={d.mothersWithNewborn}
+              tone={d.mothersWithNewborn > 0 ? "warn" : "normal"}
+              href={link("/cases/maternal?status=open&segment=newborn_mother")}
+            />
+          </>
+        ) : (
+          <StatTile
+            label="Pregnant / new mothers"
+            value={d.pregnant}
+            tone={d.pregnant > 0 ? "warn" : "normal"}
+            href={link("/cases/maternal?status=open")}
+          />
+        )}
         <StatTile
           label="Entitlement gaps"
           value={d.entitlementGaps}

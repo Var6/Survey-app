@@ -2,6 +2,8 @@ import { PageTitle } from "@/components/ui";
 import WeeklyDashboard from "@/components/WeeklyDashboard";
 import ProgrammeDashboard from "@/components/ProgrammeDashboard";
 import { weekOf, computeDashboard } from "@/lib/weekly/dashboard";
+import { casesCol } from "@/lib/models";
+import { segmentFilter } from "@/lib/cases/segments";
 
 export const metadata = { title: "Dashboard · MIS" };
 
@@ -9,6 +11,13 @@ async function getDash() {
   try {
     const { weekStart, weekEnd, reportId } = weekOf(new Date());
     const dashboard = await computeDashboard(weekStart, weekEnd);
+    // On this live page the two mother boxes count open cases — exactly what the
+    // case pages they open list — instead of survey answers.
+    const cases = await casesCol();
+    const open = (s: "pregnant" | "newborn_mother") =>
+      cases.countDocuments({ $and: [segmentFilter(s), { closed: false }] });
+    dashboard.pregnantWomen = await open("pregnant");
+    dashboard.mothersWithNewborn = await open("newborn_mother");
     // The week's Monday and Sunday as plain dates (weekOf labels them in UTC), so the
     // "households surveyed" box opens the survey list for exactly that week.
     const day = (x: Date) => x.toISOString().slice(0, 10);
