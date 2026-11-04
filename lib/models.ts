@@ -29,6 +29,8 @@ export const COLLECTIONS = {
   meetings: "meetings",
   calendarLog: "calendar_sync_log",
   meetingRecords: "meeting_records",
+  supportRecords: "support_records",
+  visitRecords: "visit_records",
 } as const;
 
 /* ─────────────────────────────────────────────────────────────
@@ -314,6 +316,8 @@ export interface CaseDoc {
   lastFollowupAt?: Date;
   /** The closure request currently awaiting review, if any. */
   closureRequestId?: ObjectId;
+  /** How the case was closed: reviewers approved a CM's request, staff closed it, or it came from the old Google Sheet. */
+  closedVia?: "review" | "staff" | "import";
   /** Snapshot of the survey answers that triggered this case (context). */
   meta?: Record<string, unknown>;
   /** Staff-editable module fields (referral date, application no., etc.). */
@@ -420,6 +424,8 @@ export type NotificationCategory =
   | "meeting_invited"
   | "meeting_report"
   | "camp_report"
+  | "support_record"
+  | "visit_report"
   | "report_reminder";
 
 export interface NotificationDoc {
@@ -429,7 +435,7 @@ export interface NotificationDoc {
   title: string;
   body: string;
   /** What the notification is about — the client builds the link for the viewer's role. */
-  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "camp_record" | "monthly";
+  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "camp_record" | "support_record" | "visit_record" | "monthly";
   relatedId?: string;
   /** Unique per recipient: a retried job can never notify twice. */
   dedupeKey: string;
@@ -584,8 +590,101 @@ export interface MeetingRecordDoc {
   /** Who filled it in. Missing on records imported from the old Google Form. */
   cmId?: ObjectId;
   cmName?: string;
+  /** True when the CM was worked out from the community's assigned CM, not recorded on the form. */
+  cmInferred?: boolean;
   source: "app" | "import";
   /** Stable key of an imported row, so re-running the import never duplicates it. */
+  importKey?: string;
+  submittedAt: Date;
+  history: ScheduleHistory[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * "Community Support & Follow-up": one piece of support given to one person
+ * (a certificate applied for, a health referral, a school admission …). The CM
+ * fills it — usually when closing a case — and MIS / PM / Director verify it.
+ * Records from the old Google Sheet are imported with source "import".
+ */
+export interface SupportRecordDoc {
+  _id?: ObjectId;
+  /** YYYY-MM-DD, India time. */
+  supportDate: string;
+  settlementCode: string;
+  communityName: string;
+  /** A case module key; "entitlements" is shown as "Document Support". */
+  referral: string;
+  referralLabel: string;
+  beneficiaryName: string;
+  phone?: string;
+  supportTypes: string[];
+  supportTypeLabels: string[];
+  /** Answers to the referral-specific page of the form (facility, school …), by field key. */
+  details: Record<string, string>;
+  /** Proof photos / scans: Google Drive links. */
+  photoLinks: string[];
+  status: "complete" | "follow_up_required";
+  remarks?: string;
+  /** The case this support belongs to, and how sure we are. */
+  caseId?: ObjectId;
+  caseCode?: string;
+  householdId?: string;
+  linkStatus: "linked" | "suggested" | "unlinked";
+  suggestions?: { caseId: string; caseCode: string; householdId: string; name: string; score: number }[];
+  /** Set when a CM's complete record asks for the case to be closed. */
+  closureId?: ObjectId;
+  verification: "not_needed" | "pending" | "verified" | "rejected";
+  cmId?: ObjectId;
+  cmName?: string;
+  /** True when the CM was worked out from the community's assigned CM, not recorded. */
+  cmInferred?: boolean;
+  source: "app" | "import";
+  importKey?: string;
+  submittedAt: Date;
+  history: ScheduleHistory[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * "Visited" form: a CM's visit to a school, an Anganwadi centre or a health
+ * facility, and who they met there. Which contact fields are filled depends on
+ * `visitedType`. The CM files it; MIS / PM / Director read and correct it.
+ * Rows from the old Google Form are imported with source "import".
+ */
+export type VisitedType = "school" | "anganwadi" | "health";
+export interface VisitRecordDoc {
+  _id?: ObjectId;
+  /** YYYY-MM-DD, India time. */
+  visitDate: string;
+  settlementCode?: string;
+  communityName: string;
+  /** The tola exactly as typed on the old form, when it named more than one place or did not match. */
+  tolaAsTyped?: string;
+  visitedType: VisitedType;
+  /** "Meet stakeholder name" — whoever the CM met (school form). */
+  stakeholderNames?: string;
+  discussion: string;
+  photoLinks: string[];
+  remarks?: string;
+  // School
+  schoolName?: string;
+  principalName?: string;
+  principalPhone?: string;
+  // Anganwadi
+  ashaName?: string;
+  ashaPhone?: string;
+  anmName?: string;
+  anmPhone?: string;
+  // Health facility
+  facilityName?: string;
+  doctorName?: string;
+  doctorPhone?: string;
+  cmId?: ObjectId;
+  /** The name as filed; on imported rows, as typed on the form. */
+  cmName?: string;
+  source: "app" | "import";
   importKey?: string;
   submittedAt: Date;
   history: ScheduleHistory[];
@@ -699,6 +798,10 @@ export const caseClosuresCol = () => col<CaseClosureDoc>(COLLECTIONS.caseClosure
 export const lookupsCol = () => col<LookupDoc>(COLLECTIONS.lookups);
 export const campsCol = () => col<CampDoc>(COLLECTIONS.camps);
 export const meetingsCol = () => col<MeetingDoc>(COLLECTIONS.meetings);
+export const supportRecordsCol = () =>
+  col<SupportRecordDoc>(COLLECTIONS.supportRecords);
+export const visitRecordsCol = () =>
+  col<VisitRecordDoc>(COLLECTIONS.visitRecords);
 export const meetingRecordsCol = () =>
   col<MeetingRecordDoc>(COLLECTIONS.meetingRecords);
 export const calendarLogCol = () =>
@@ -857,6 +960,33 @@ export async function ensureIndexes(): Promise<void> {
       .collection(COLLECTIONS.meetingRecords)
       .createIndex({ settlementCode: 1, meetingDate: -1 }),
     db.collection(COLLECTIONS.meetingRecords).createIndex(
+      { importKey: 1 },
+      { unique: true, partialFilterExpression: { importKey: { $type: "string" } } }
+    ),
+    db
+      .collection(COLLECTIONS.supportRecords)
+      .createIndex({ supportDate: -1, _id: -1 }),
+    db
+      .collection(COLLECTIONS.supportRecords)
+      .createIndex({ cmId: 1, supportDate: -1 }),
+    db
+      .collection(COLLECTIONS.supportRecords)
+      .createIndex({ settlementCode: 1, referral: 1, status: 1 }),
+    db.collection(COLLECTIONS.supportRecords).createIndex({ caseId: 1 }),
+    db.collection(COLLECTIONS.supportRecords).createIndex(
+      { importKey: 1 },
+      { unique: true, partialFilterExpression: { importKey: { $type: "string" } } }
+    ),
+    db
+      .collection(COLLECTIONS.visitRecords)
+      .createIndex({ visitDate: -1, _id: -1 }),
+    db
+      .collection(COLLECTIONS.visitRecords)
+      .createIndex({ cmId: 1, visitDate: -1 }),
+    db
+      .collection(COLLECTIONS.visitRecords)
+      .createIndex({ settlementCode: 1, visitedType: 1 }),
+    db.collection(COLLECTIONS.visitRecords).createIndex(
       { importKey: 1 },
       { unique: true, partialFilterExpression: { importKey: { $type: "string" } } }
     ),

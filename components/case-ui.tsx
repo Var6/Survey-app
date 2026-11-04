@@ -26,6 +26,7 @@ export interface CaseItem {
   stageLabel: string;
   closed: boolean;
   householdId: string;
+  settlementCode: string;
   settlementLabel: string;
   assignedCmId: string | null;
   assignedCmName: string | null;

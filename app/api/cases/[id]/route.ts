@@ -72,6 +72,7 @@ export async function PATCH(
       if (isClosed) {
         // A reviewer closing directly settles any pending closure request.
         set.workflowStatus = "verified_closed";
+        set.closedVia = "staff";
         unset.closureRequestId = "";
       } else if (doc.closed) {
         set.workflowStatus = "open";

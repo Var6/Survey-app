@@ -13,6 +13,7 @@ import {
   type UserDoc,
 } from "@/lib/models";
 import { audit } from "@/lib/audit";
+import { supportRecordsCol } from "@/lib/models";
 import { notifyRoles, notifyUsers } from "@/lib/notifications";
 import { isDateStr, istToday } from "@/lib/time";
 import { closedStage, MODULES } from "./modules";
@@ -415,6 +416,11 @@ export async function reviewClosure(
   /* Rejected: back to the CM. */
   if (decision === "reject") {
     await closures.updateOne({ _id: updated._id }, { $set: { resolvedAt: stamp } });
+    // The support form that asked for this closure goes back to the CM too.
+    await (await supportRecordsCol()).updateMany(
+      { caseId: c._id, verification: "pending" },
+      { $set: { verification: "rejected", updatedAt: stamp } }
+    );
     await cases.updateOne(
       { _id: c._id, closureRequestId: updated._id },
       {
@@ -477,6 +483,7 @@ export async function reviewClosure(
         {
           $set: {
             workflowStatus: "verified_closed",
+            closedVia: "review",
             closed: true,
             closedAt: stamp,
             stage: closedStage(c.module),
@@ -494,6 +501,10 @@ export async function reviewClosure(
             ),
           },
         } as never
+      );
+      await (await supportRecordsCol()).updateMany(
+        { caseId: c._id, verification: "pending" },
+        { $set: { verification: "verified", updatedAt: stamp } }
       );
       const ids = cmId ? [cmId] : [];
       await notifyUsers(ids, {

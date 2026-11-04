@@ -16,6 +16,8 @@ import type {
   CampDoc,
   MeetingDoc,
   MeetingRecordDoc,
+  SupportRecordDoc,
+  VisitRecordDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
 import { moduleDef, stageLabel, subcategoryLabel } from "./cases/modules";
@@ -355,6 +357,37 @@ export function publicCamp(c: CampDoc, extra?: { cmNames?: Record<string, string
   };
 }
 
+export function publicSupportRecord(r: SupportRecordDoc) {
+  return {
+    id: String(r._id),
+    supportDate: r.supportDate,
+    settlementCode: r.settlementCode,
+    communityName: r.communityName,
+    referral: r.referral,
+    referralLabel: r.referralLabel,
+    beneficiaryName: r.beneficiaryName,
+    phone: r.phone ?? null,
+    supportTypes: r.supportTypes,
+    supportTypeLabels: r.supportTypeLabels,
+    details: r.details ?? {},
+    photoLinks: r.photoLinks ?? [],
+    status: r.status,
+    remarks: r.remarks ?? null,
+    caseId: r.caseId ? String(r.caseId) : null,
+    caseCode: r.caseCode ?? null,
+    householdId: r.householdId ?? null,
+    linkStatus: r.linkStatus,
+    suggestions: r.suggestions ?? [],
+    verification: r.verification,
+    cmName: r.cmName ?? null,
+    cmInferred: r.cmInferred ?? false,
+    source: r.source,
+    submittedAt: r.submittedAt,
+    history: r.history ?? [],
+    updatedAt: r.updatedAt,
+  };
+}
+
 export function publicMeetingRecord(r: MeetingRecordDoc) {
   return {
     id: String(r._id),
@@ -373,6 +406,37 @@ export function publicMeetingRecord(r: MeetingRecordDoc) {
     participantNotes: r.participantNotes ?? null,
     photoLinks: r.photoLinks ?? [],
     remarks: r.remarks ?? null,
+    cmName: r.cmName ?? null,
+    cmInferred: r.cmInferred ?? false,
+    source: r.source,
+    submittedAt: r.submittedAt,
+    history: r.history ?? [],
+    updatedAt: r.updatedAt,
+  };
+}
+
+export function publicVisitRecord(r: VisitRecordDoc) {
+  return {
+    id: String(r._id),
+    visitDate: r.visitDate,
+    settlementCode: r.settlementCode ?? null,
+    communityName: r.communityName,
+    tolaAsTyped: r.tolaAsTyped ?? null,
+    visitedType: r.visitedType,
+    stakeholderNames: r.stakeholderNames ?? null,
+    discussion: r.discussion,
+    photoLinks: r.photoLinks ?? [],
+    remarks: r.remarks ?? null,
+    schoolName: r.schoolName ?? null,
+    principalName: r.principalName ?? null,
+    principalPhone: r.principalPhone ?? null,
+    ashaName: r.ashaName ?? null,
+    ashaPhone: r.ashaPhone ?? null,
+    anmName: r.anmName ?? null,
+    anmPhone: r.anmPhone ?? null,
+    facilityName: r.facilityName ?? null,
+    doctorName: r.doctorName ?? null,
+    doctorPhone: r.doctorPhone ?? null,
     cmName: r.cmName ?? null,
     source: r.source,
     submittedAt: r.submittedAt,

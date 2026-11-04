@@ -16,6 +16,8 @@ export const NOTIFICATION_LABEL: Record<string, string> = {
   meeting_invited: "Meeting invitation",
   meeting_report: "Meeting report",
   camp_report: "Camp report",
+  support_record: "Support record",
+  visit_report: "Visit report",
   report_reminder: "Report reminder",
 };
 
@@ -38,6 +40,10 @@ export function notificationHref(
       return `${area}/meeting-reports?open=${id}`;
     case "camp_record":
       return `${area}/camp-reports?open=${id}`;
+    case "support_record":
+      return `${area}/support?open=${id}`;
+    case "visit_record":
+      return `${area}/visit-reports?open=${id}`;
     case "monthly":
       return area === "/director" ? "/director/reports" : `${area}/monthly`;
     default:

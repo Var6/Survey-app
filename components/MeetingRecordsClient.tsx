@@ -27,6 +27,7 @@ interface Rec {
   stakeholderName: string | null;
   participantNotes: string | null;
   cmName: string | null;
+  cmInferred?: boolean;
   source: "app" | "import";
   submittedAt: string;
   history: { at: string; by: string; note: string }[];
@@ -327,7 +328,7 @@ export default function MeetingRecordsClient({
                 )}
                 <p className="mt-1.5 line-clamp-2 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">{r.topic}</p>
                 <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
-                  {staff && <span>{r.cmName ?? (r.source === "import" ? "Imported from Google Form" : "—")}</span>}
+                  {staff && <span>{r.cmName ? `${r.cmName}${r.cmInferred ? " (community CM)" : ""}` : r.source === "import" ? "Imported from Google Form" : "—"}</span>}
                   <span className={r.attendanceLinks.length ? "" : "font-semibold text-amber-600"}>{r.attendanceLinks.length ? `${r.attendanceLinks.length} attendance sheet${r.attendanceLinks.length > 1 ? "s" : ""}` : "no attendance sheet"}</span>
                   <span className={r.photoLinks.length ? "" : "font-semibold text-amber-600"}>{r.photoLinks.length ? `${r.photoLinks.length} photo link${r.photoLinks.length > 1 ? "s" : ""}` : "no photo"}</span>
                 </p>

@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, formatDate } from "@/lib/client";
 import { uploadImage } from "@/lib/image";
 import { MODULES } from "@/lib/cases/modules";
+import { presetTypesForCase } from "@/lib/support/schema";
+import SupportForm, { emptySupport } from "./SupportForm";
 import { CM_CAN_FOLLOW_UP, CM_CAN_REQUEST_CLOSURE } from "@/lib/cases/workflow";
 import {
   CaseItem,
@@ -144,9 +146,9 @@ export default function CmCaseDetail({ caseId }: { caseId: string }) {
         />
       )}
 
-      {canRequest && (
-        <ClosurePanel
-          caseId={item.id}
+      {(canFollowUp || canRequest) && !item.closed && (
+        <CloseCaseButton
+          item={item}
           policyText={policyText}
           onDone={(msg) => {
             setFlash(msg);
@@ -329,61 +331,48 @@ function FollowupForm({ caseId, onDone }: { caseId: string; onDone: (msg: string
   );
 }
 
-function ClosurePanel({
-  caseId, policyText, onDone,
-}: {
-  caseId: string; policyText: string; onDone: (msg: string) => void;
-}) {
+/**
+ * "Close case" opens the Community Support & Follow-up form for this case.
+ * Choosing Complete sends it to MIS, the Programme Manager and the Director to
+ * verify (the case closes only after they approve); Follow-up required saves it
+ * as a follow-up and the case stays open.
+ */
+function CloseCaseButton({ item, policyText, onDone }: { item: CaseItem; policyText: string; onDone: (msg: string) => void }) {
   const [open, setOpen] = useState(false);
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const submit = async () => {
-    setBusy(true);
-    setErr(null);
-    try {
-      await apiFetch(`/api/cases/${caseId}/closure`, { method: "POST", body: JSON.stringify({ note }) });
-      setOpen(false);
-      setNote("");
-      onDone("बंद करने का अनुरोध भेजा गया। Director, MIS और PM जाँच करेंगे · Closure requested. The Director, MIS and PM will review it.");
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (!open) {
-    return (
+  const today = new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
+  const docs = (item.meta?.docs as unknown) ?? undefined;
+  return (
+    <>
       <button
         onClick={() => setOpen(true)}
-        className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
+        className="w-full rounded-xl border border-teal-600 bg-teal-700 px-4 py-3 text-sm font-semibold text-white hover:bg-teal-800"
       >
-        केस बंद करने का अनुरोध करें · Request closure
+        केस बंद करें / सहायता फ़ॉर्म भरें · Close case — fill the support form
       </button>
-    );
-  }
-  return (
-    <section className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-900/60 dark:bg-amber-950/20">
-      <h2 className="text-sm font-bold text-amber-900 dark:text-amber-200">
-        केस बंद करने का अनुरोध · Request closure
-      </h2>
-      <p className="text-xs text-amber-800 dark:text-amber-300">
-        आप केस खुद बंद नहीं कर सकते — जाँच के बाद बंद होगा · You cannot close a case yourself; it closes after review. {policyText}.
-      </p>
-      {err && <p className="text-sm text-red-700">{err}</p>}
-      <Field label="क्यों बंद हो सकता है · Why can this case be closed? *">
-        <textarea className={inputCls} rows={3} value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} autoFocus />
-      </Field>
-      <div className="flex gap-2">
-        <button onClick={submit} disabled={busy || !note.trim()} className="rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60">
-          {busy ? "भेज रहे हैं…" : "अनुरोध भेजें · Send request"}
-        </button>
-        <button onClick={() => setOpen(false)} className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm dark:border-zinc-700">
-          रद्द · Cancel
-        </button>
-      </div>
-    </section>
+      <p className="-mt-3 text-center text-[11px] text-zinc-400">{policyText}</p>
+      {open && (
+        <SupportForm
+          hi
+          caseId={item.id}
+          lock={{ community: true, referral: true, beneficiary: true }}
+          initial={{
+            ...emptySupport(today),
+            settlementCode: item.settlementCode,
+            referral: item.module,
+            beneficiaryName: item.subjectName ?? "",
+            supportTypes: presetTypesForCase(item.module, item.subcategory, docs),
+          }}
+          onClose={() => setOpen(false)}
+          onSaved={(r) => {
+            setOpen(false);
+            onDone(
+              r.verification === "pending"
+                ? "फ़ॉर्म जमा हुआ। केस बंद करने का अनुरोध MIS, PM और Director को भेजा गया · Form submitted. The closure request has gone to MIS, the Programme Manager and the Director."
+                : "फॉलो-अप दर्ज हुआ; केस खुला है · Follow-up recorded; the case stays open."
+            );
+          }}
+        />
+      )}
+    </>
   );
 }

@@ -598,6 +598,7 @@ function CaseDrawer({
   const [item, setItem] = useState<CaseItem | null>(null);
   const [followups, setFollowups] = useState<FollowupItem[]>([]);
   const [closures, setClosures] = useState<ClosureItem[]>([]);
+  const [support, setSupport] = useState<{ id: string; supportDate: string; supportTypeLabels: string[]; status: string; verification: string; cmName: string | null; source: string; photoLinks: string[] }[]>([]);
   const [me, setMe] = useState<string | null>(null);
   const [cms, setCms] = useState<{ id: string; name: string }[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -629,6 +630,9 @@ function CaseDrawer({
       hydrate(r.case);
       setFollowups(r.followups);
       setClosures(r.closures);
+      apiFetch<{ records: typeof support }>(`/api/support-records?case=${caseId}&pageSize=20`)
+        .then((x) => setSupport(x.records))
+        .catch(() => setSupport([]));
       setErr(null);
     } catch (e) {
       setErr((e as Error).message);
@@ -815,6 +819,24 @@ function CaseDrawer({
             </h3>
             <FollowupList followups={followups} />
           </section>
+
+          {support.length > 0 && (
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Support & follow-up forms ({support.length})
+              </h3>
+              <ul className="space-y-1.5">
+                {support.map((s) => (
+                  <li key={s.id} className="rounded-lg border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
+                    <a href={`${basePath}/support?open=${s.id}`} className="font-medium text-teal-700 underline dark:text-teal-400">
+                      {s.supportTypeLabels.join(", ")}
+                    </a>
+                    <span className="text-zinc-400"> · {formatDate(s.supportDate)} · {s.status === "complete" ? "Complete" : "Follow-up required"}{s.verification !== "not_needed" ? ` · ${s.verification}` : ""}{s.source === "import" ? " · Google Sheet" : ""}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {closures.length > 0 && (
             <section>
