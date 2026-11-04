@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card } from "@/components/ui";
 import { ProgressRing, StatTile, HBars } from "@/components/charts";
 
@@ -44,18 +45,39 @@ const TG_COLOR: Record<string, string> = {
   elderly: "bg-emerald-500",
 };
 
+/** A Card that becomes a link when it has somewhere to go. */
+function CardLink({ href, children }: { href?: string; children: React.ReactNode }) {
+  return href ? (
+    <Link href={href} className="block transition hover:-translate-y-0.5 hover:shadow-md">
+      <Card>{children}</Card>
+    </Link>
+  ) : (
+    <Card>{children}</Card>
+  );
+}
+
 function Ring({
   value,
   max,
   label,
   color = "text-teal-600",
+  href,
 }: {
   value: number;
   max: number;
   label: string;
   color?: string;
+  href?: string;
 }) {
-  return (
+  const wrap = (inner: React.ReactNode) =>
+    href ? (
+      <Link href={href} className="block transition hover:-translate-y-0.5 hover:shadow-md">
+        {inner}
+      </Link>
+    ) : (
+      inner
+    );
+  return wrap(
     <Card className="flex items-center gap-4">
       <ProgressRing value={value} max={max} size={96} stroke={10} color={color}>
         <span className="text-lg font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
@@ -70,6 +92,7 @@ function Ring({
         <p className="mt-0.5 text-xs tabular-nums text-zinc-400">
           {max > 0 ? Math.round((value / max) * 100) : 0}%
         </p>
+        {href && <p className="mt-1 text-[11px] font-medium text-teal-600 dark:text-teal-400">View →</p>}
       </div>
     </Card>
   );
@@ -78,12 +101,24 @@ function Ring({
 export default function WeeklyDashboard({
   dashboard,
   periodLabel = "week",
+  basePath,
+  range,
 }: {
   dashboard: Dash | null;
   periodLabel?: string;
+  /**
+   * Area prefix ("/mis"). When set, the boxes become links to the survey list
+   * or case module behind each number. Inside a saved report the dashboard is
+   * a snapshot of a past period, so those pages leave this out.
+   */
+  basePath?: string;
+  /** The period shown, as India dates — used to open the survey list for just that period. */
+  range?: { from: string; to: string };
 }) {
   if (!dashboard) return null;
   const d = dashboard;
+  const link = (path: string) => (basePath ? `${basePath}${path}` : undefined);
+  const canSeeUsers = basePath === "/mis" || basePath === "/director";
   const maxCum = Math.max(1, ...d.settlementSplit.map((s) => s.cumulative));
 
   return (
@@ -94,37 +129,59 @@ export default function WeeklyDashboard({
           value={d.settlementsCovered}
           max={d.totalSettlements}
           label={`Settlements covered this ${periodLabel}`}
+          href={link("/communities")}
         />
         <Ring
           value={d.mobiliserDeployment}
           max={d.totalMobilisers}
           label={`Mobilisers active this ${periodLabel}`}
           color="text-indigo-500"
+          href={canSeeUsers ? link("/users") : undefined}
         />
         <Ring
           value={d.householdsCumulative}
           max={d.targetHouseholds}
           label="Households surveyed (cumulative)"
           color="text-emerald-500"
+          href={link("/surveys")}
         />
       </div>
 
       {/* Headline tiles */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <StatTile label={`Households surveyed (${periodLabel})`} value={d.householdsWeek} />
-        <StatTile label="Households need follow-up" value={d.followupHouseholds} />
+        <StatTile
+          label={`Households surveyed (${periodLabel})`}
+          value={d.householdsWeek}
+          href={link(range ? `/surveys?from=${range.from}&to=${range.to}` : "/surveys")}
+        />
+        <StatTile
+          label="Households need follow-up"
+          value={d.followupHouseholds}
+          href={link("/cases/all?status=open")}
+        />
         <StatTile
           label="Urgent health cases"
           value={d.urgentHealth}
           tone={d.urgentHealth > 0 ? "alert" : "normal"}
+          href={link("/cases/health?status=open&priority=urgent")}
         />
         <StatTile
           label="Pregnant / new mothers"
           value={d.pregnant}
           tone={d.pregnant > 0 ? "warn" : "normal"}
+          href={link("/cases/maternal?status=open")}
         />
-        <StatTile label="Entitlement gaps" value={d.entitlementGaps} />
-        <StatTile label="PWD households" value={d.pwd} hint={`${d.widow} widow / single women`} />
+        <StatTile
+          label="Entitlement gaps"
+          value={d.entitlementGaps}
+          href={link("/cases/entitlements?status=open")}
+        />
+        <StatTile
+          label="PWD households"
+          value={d.pwd}
+          hint={`${d.widow} widow / single women`}
+          href={link("/surveys?pwd=1")}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -157,8 +214,9 @@ export default function WeeklyDashboard({
             </span>
           </p>
           <div className="space-y-2">
-            {d.settlementSplit.map((s) => (
-              <div key={s.code} className="flex items-center gap-3">
+            {d.settlementSplit.map((s) => {
+              const row = (
+              <>
                 <div
                   className="w-32 shrink-0 truncate text-xs text-zinc-500 dark:text-zinc-400"
                   title={s.label}
@@ -181,14 +239,29 @@ export default function WeeklyDashboard({
                   <span className="font-semibold">{s.week}</span>
                   <span className="text-zinc-400"> / {s.cumulative}</span>
                 </div>
-              </div>
-            ))}
+              </>
+              );
+              const href = link(`/surveys?settlement=${encodeURIComponent(s.code)}`);
+              return href ? (
+                <Link
+                  key={s.code}
+                  href={href}
+                  className="-mx-1.5 flex items-center gap-3 rounded px-1.5 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                >
+                  {row}
+                </Link>
+              ) : (
+                <div key={s.code} className="flex items-center gap-3">
+                  {row}
+                </div>
+              );
+            })}
           </div>
         </Card>
       </div>
 
       {/* CM daily reports */}
-      <Card>
+      <CardLink href={canSeeUsers ? link("/reports") : undefined}>
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
           CM daily reports (this {periodLabel})
         </p>
@@ -218,7 +291,8 @@ export default function WeeklyDashboard({
             <p className="text-zinc-500">Follow-ups</p>
           </div>
         </div>
-      </Card>
+        {canSeeUsers && <p className="mt-2 text-center text-[11px] font-medium text-teal-600 dark:text-teal-400">Open the daily reports →</p>}
+      </CardLink>
     </div>
   );
 }

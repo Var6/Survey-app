@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { PageTitle, btnPrimary } from "@/components/ui";
 import SurveysClient from "@/components/SurveysClient";
@@ -17,7 +18,9 @@ export default function DirectorSurveysPage() {
           </Link>
         }
       />
-      <SurveysClient scope="director" />
+      <Suspense fallback={<p className="text-sm text-zinc-400">Loading…</p>}>
+        <SurveysClient scope="director" />
+      </Suspense>
     </div>
   );
 }

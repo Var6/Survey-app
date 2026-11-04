@@ -115,14 +115,15 @@ export function HBars({
   data,
   valueSuffix = "",
 }: {
-  data: { label: string; value: number; className?: string }[];
+  data: { label: string; value: number; className?: string; href?: string }[];
   valueSuffix?: string;
 }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
     <div className="space-y-2.5">
-      {data.map((d) => (
-        <div key={d.label} className="flex items-center gap-3">
+      {data.map((d) => {
+        const row = (
+        <>
           <div className="w-32 shrink-0 truncate text-xs text-zinc-500 dark:text-zinc-400" title={d.label}>
             {d.label}
           </div>
@@ -136,8 +137,22 @@ export function HBars({
             {d.value.toLocaleString("en-IN")}
             {valueSuffix}
           </div>
-        </div>
-      ))}
+        </>
+        );
+        return d.href ? (
+          <Link
+            key={d.label}
+            href={d.href}
+            className="-mx-1.5 flex items-center gap-3 rounded px-1.5 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          >
+            {row}
+          </Link>
+        ) : (
+          <div key={d.label} className="flex items-center gap-3">
+            {row}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -117,7 +117,7 @@ export default function MeetingsClient({ canCreate }: { canCreate: boolean }) {
 
   return (
     <div className="space-y-4">
-      <PageHeaderBroadcast title="Community meetings" subtitle="Organise meetings and tag colleagues to help" />
+      <PageHeaderBroadcast title="Planned meetings" subtitle="Plan an upcoming meeting and tag colleagues to help" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-800">
           {TABS.map((t) => (

@@ -21,6 +21,8 @@ const DEFAULTS: Record<LookupDoc["list"], string[]> = {
     "Awareness meeting",
     "Other",
   ],
+  // The three kinds on the Google Form the CMs used for meeting reports.
+  meeting_form_type: ["Youth Boy's Meeting", "Youth Girl's Meeting", "Woman Meeting"],
 };
 
 export const slugify = (label: string) =>

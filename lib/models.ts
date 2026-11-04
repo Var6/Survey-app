@@ -28,6 +28,7 @@ export const COLLECTIONS = {
   camps: "camps",
   meetings: "meetings",
   calendarLog: "calendar_sync_log",
+  meetingRecords: "meeting_records",
 } as const;
 
 /* ─────────────────────────────────────────────────────────────
@@ -417,6 +418,7 @@ export type NotificationCategory =
   | "meeting_created"
   | "meeting_updated"
   | "meeting_invited"
+  | "meeting_report"
   | "report_reminder";
 
 export interface NotificationDoc {
@@ -426,7 +428,7 @@ export interface NotificationDoc {
   title: string;
   body: string;
   /** What the notification is about — the client builds the link for the viewer's role. */
-  relatedType?: "case" | "camp" | "meeting" | "monthly";
+  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "monthly";
   relatedId?: string;
   /** Unique per recipient: a retried job can never notify twice. */
   dedupeKey: string;
@@ -452,7 +454,7 @@ export interface AuditDoc {
 /* ─── Configurable lists (camp types, meeting types) ────────── */
 export interface LookupDoc {
   _id?: ObjectId;
-  list: "camp_type" | "meeting_type";
+  list: "camp_type" | "meeting_type" | "meeting_form_type";
   key: string;
   label: string;
   active: boolean;
@@ -534,6 +536,38 @@ export interface MeetingDoc {
   /** Other CMs tagged to help — any number. */
   taggedCmIds: ObjectId[];
   status: "scheduled" | "cancelled" | "completed";
+  history: ScheduleHistory[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * A community meeting that HAS happened — the record the Community Mobilisers
+ * used to fill in on a Google Form. Office roles (MIS, Programme Manager,
+ * Director) read and correct every record; a CM adds records and sees their own.
+ * Photos and attendance sheets are Google Drive links, not uploads.
+ */
+export interface MeetingRecordDoc {
+  _id?: ObjectId;
+  /** YYYY-MM-DD, India time. */
+  meetingDate: string;
+  settlementCode?: string;
+  /** Community name as shown (the live name when the code is known). */
+  communityName: string;
+  typeKey: string;
+  typeLabel: string;
+  topic: string;
+  attendanceLinks: string[];
+  totalParticipants: number;
+  photoLinks: string[];
+  remarks?: string;
+  /** Who filled it in. Missing on records imported from the old Google Form. */
+  cmId?: ObjectId;
+  cmName?: string;
+  source: "app" | "import";
+  /** Stable key of an imported row, so re-running the import never duplicates it. */
+  importKey?: string;
+  submittedAt: Date;
   history: ScheduleHistory[];
   createdAt: Date;
   updatedAt: Date;
@@ -645,6 +679,8 @@ export const caseClosuresCol = () => col<CaseClosureDoc>(COLLECTIONS.caseClosure
 export const lookupsCol = () => col<LookupDoc>(COLLECTIONS.lookups);
 export const campsCol = () => col<CampDoc>(COLLECTIONS.camps);
 export const meetingsCol = () => col<MeetingDoc>(COLLECTIONS.meetings);
+export const meetingRecordsCol = () =>
+  col<MeetingRecordDoc>(COLLECTIONS.meetingRecords);
 export const calendarLogCol = () =>
   col<{
     _id?: ObjectId;
@@ -791,6 +827,19 @@ export async function ensureIndexes(): Promise<void> {
     db
       .collection(COLLECTIONS.calendarLog)
       .createIndex({ campId: 1, at: -1 }),
+    db
+      .collection(COLLECTIONS.meetingRecords)
+      .createIndex({ meetingDate: -1, _id: -1 }),
+    db
+      .collection(COLLECTIONS.meetingRecords)
+      .createIndex({ cmId: 1, meetingDate: -1 }),
+    db
+      .collection(COLLECTIONS.meetingRecords)
+      .createIndex({ settlementCode: 1, meetingDate: -1 }),
+    db.collection(COLLECTIONS.meetingRecords).createIndex(
+      { importKey: 1 },
+      { unique: true, partialFilterExpression: { importKey: { $type: "string" } } }
+    ),
   ]);
 
   indexesEnsured = true;

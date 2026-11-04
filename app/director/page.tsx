@@ -50,17 +50,19 @@ export default async function DirectorHome() {
         <div>
           <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Operations</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatTile label="Mobilisers" value={ops.cms} />
-            <StatTile label="Projects" value={ops.projectCount} />
+            <StatTile label="Mobilisers" value={ops.cms} href="/director/users" />
+            <StatTile label="Projects" value={ops.projectCount} href="/director/projects" />
             <StatTile
               label="Pending Frappe sync"
               value={ops.unsynced}
               tone={ops.unsynced > 0 ? "warn" : "good"}
+              href="/director/sync"
             />
             <StatTile
               label="Requisitions to review"
               value={ops.pendingReq}
               tone={ops.pendingReq > 0 ? "warn" : "normal"}
+              href="/director/finance"
             />
           </div>
         </div>

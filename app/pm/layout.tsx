@@ -45,7 +45,8 @@ const NAV: ShellNavGroup[] = [
     items: [
       { href: "/pm/cases/all", label: "All cases", icon: "check", exact: true },
       { href: "/pm/camps", label: "Camps", icon: "camp" },
-      { href: "/pm/meetings", label: "Community meetings", icon: "users" },
+      { href: "/pm/meeting-reports", label: "Meeting reports", icon: "survey" },
+      { href: "/pm/meetings", label: "Planned meetings", icon: "users" },
       { href: "/pm/notifications", label: "Notifications", icon: "bell" },
     ],
   },

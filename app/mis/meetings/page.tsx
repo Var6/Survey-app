@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import MeetingsClient from "@/components/MeetingsClient";
 
-export const metadata = { title: "Community meetings · MIS" };
+export const metadata = { title: "Planned meetings · MIS" };
 
 export default function MeetingsPage() {
   return (

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { apiFetch, formatDate } from "@/lib/client";
 import { Card, Empty, Badge, inputClass, btnGhost } from "@/components/ui";
 import { useSettlements } from "@/lib/useSettlements";
@@ -54,6 +54,9 @@ export default function SurveysClient({
   const isDirector = scope === "director" || scope === "mis";
   const canExport = isDirector;
   const pathname = usePathname();
+  // Dashboard boxes open this page with filters already set (?settlement=…&pwd=1).
+  const urlParams = useSearchParams();
+  const pick = (k: string) => urlParams.get(k) ?? "";
   const { settlements } = useSettlements(true);
   const [rows, setRows] = useState<SurveyRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -63,16 +66,18 @@ export default function SurveysClient({
   const [err, setErr] = useState<string | null>(null);
   const [mobilisers, setMobilisers] = useState<CM[]>([]);
 
-  const [mobiliserId, setMobiliserId] = useState("");
-  const [settlement, setSettlement] = useState("");
-  const [sync, setSync] = useState("");
-  const [status, setStatus] = useState("");
+  const [mobiliserId, setMobiliserId] = useState(() => pick("mobiliserId"));
+  const [settlement, setSettlement] = useState(() => pick("settlement"));
+  const [sync, setSync] = useState(() => pick("sync"));
+  const [status, setStatus] = useState(() => pick("status"));
+  const [pwd, setPwd] = useState(() => pick("pwd") === "1");
+  const [escalated, setEscalated] = useState(() => pick("escalated") === "1");
   // Dates are typed first, then applied with the button; the applied pair is
   // what the list and every export use.
-  const [fromDraft, setFromDraft] = useState("");
-  const [toDraft, setToDraft] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [fromDraft, setFromDraft] = useState(() => pick("from"));
+  const [toDraft, setToDraft] = useState(() => pick("to"));
+  const [from, setFrom] = useState(() => pick("from"));
+  const [to, setTo] = useState(() => pick("to"));
   const rangeInvalid = !!fromDraft && !!toDraft && fromDraft > toDraft;
   const dirty = fromDraft !== from || toDraft !== to;
 
@@ -85,13 +90,15 @@ export default function SurveysClient({
     if (status) p.set("status", status);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
+    if (pwd) p.set("pwd", "1");
+    if (escalated) p.set("escalated", "1");
     return p.toString();
-  }, [isDirector, mobiliserId, settlement, sync, status, from, to]);
+  }, [isDirector, mobiliserId, settlement, sync, status, from, to, pwd, escalated]);
 
   // Any filter change starts again from page 1.
   useEffect(() => {
     setPage(1);
-  }, [mobiliserId, settlement, sync, status, from, to]);
+  }, [mobiliserId, settlement, sync, status, from, to, pwd, escalated]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -170,6 +177,21 @@ export default function SurveysClient({
             <option value="refused_midway">Refused midway</option>
           </select>
         </div>
+
+        {(pwd || escalated) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {pwd && (
+              <button type="button" onClick={() => setPwd(false)} className="rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-800 dark:bg-teal-950/50 dark:text-teal-300">
+                Households with a person with disability ✕
+              </button>
+            )}
+            {escalated && (
+              <button type="button" onClick={() => setEscalated(false)} className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800 dark:bg-red-950/50 dark:text-red-300">
+                Escalated to Director ✕
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Date range: type the dates, then Apply */}
         <div className="mt-3 flex flex-wrap items-end gap-2">

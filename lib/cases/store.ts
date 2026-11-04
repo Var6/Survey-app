@@ -8,6 +8,8 @@ import {
 import { deriveCasesFromSurvey } from "./derive";
 import { MODULES, firstStage, subcategoryLabel } from "./modules";
 import { notifyUsers } from "@/lib/notifications";
+import { maternalSegment } from "./segments";
+import { ObjectId } from "mongodb";
 
 /**
  * Derive the thematic cases for one survey and upsert them idempotently.
@@ -115,6 +117,35 @@ export async function upsertCasesForSurvey(
   }
 
   return { created, updated };
+}
+
+/**
+ * Give every maternal case that predates the pregnant / newborn split its
+ * segment, read from the pregnancy month on its survey. Additive and
+ * idempotent: it only touches cases with no segment yet, never notifies, and
+ * never changes anything else. Runs by itself the first time the dashboard
+ * is opened after the split, so nobody has to remember a button.
+ */
+export async function classifyMaternalCases(): Promise<{ classified: number; scanned: number }> {
+  const col = await casesCol();
+  const todo = await col
+    .find({ module: "maternal", segment: null } as never, { projection: { surveyId: 1 } })
+    .limit(5000)
+    .toArray();
+  if (!todo.length) return { classified: 0, scanned: 0 };
+  const surveys = await surveysCol();
+  const docs = await surveys
+    .find({ _id: { $in: [...new Set(todo.map((c) => String(c.surveyId)))].map((i) => new ObjectId(i)) } }, { projection: { data: 1 } })
+    .toArray();
+  const byId = new Map(docs.map((s) => [String(s._id), s.data || {}]));
+  const ops = todo.map((c) => ({
+    updateOne: {
+      filter: { _id: c._id, segment: null } as never,
+      update: { $set: { segment: maternalSegment((byId.get(String(c.surveyId)) || {}) as Record<string, unknown>) } },
+    },
+  }));
+  const res = await col.bulkWrite(ops, { ordered: false });
+  return { classified: res.modifiedCount, scanned: todo.length };
 }
 
 /** Regenerate cases from every survey (safe to run repeatedly). */

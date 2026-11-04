@@ -33,6 +33,18 @@ export function buildSurveyFilter(
   else if (sync === "unsynced") filter["sync.status"] = { $ne: "synced" };
   else if (sync) filter["sync.status"] = sync;
 
+  // Dashboard drill-downs. These are the SAME conditions the dashboard tiles
+  // count with, so a tile and the list it opens always agree.
+  const and: Record<string, unknown>[] = [];
+  if (params.get("pwd") === "1") {
+    // households with at least one person recorded as having a disability
+    and.push({ members: { $elemMatch: { member_disability: { $in: ["yes_cert", "yes_no_cert"] } } } });
+  }
+  if (params.get("escalated") === "1") {
+    and.push({ $or: [{ "data.next_action": "escalate" }, { "data.followup_type": "urgent" }] });
+  }
+  if (and.length) filter.$and = and;
+
   // Date range on the survey's creation date — the date shown in the list and
   // in the export. Whole India calendar days, both ends included.
   const from = params.get("from");
@@ -54,6 +66,8 @@ export function describeSurveyFilter(params: URLSearchParams): string[] {
   if (params.get("settlement")) out.push(`Settlement: ${params.get("settlement")}`);
   if (params.get("status")) out.push(`Status: ${params.get("status")}`);
   if (params.get("sync")) out.push(`Sync: ${params.get("sync")}`);
+  if (params.get("pwd") === "1") out.push("Households with a person with disability");
+  if (params.get("escalated") === "1") out.push("Escalated to Director");
   if (params.get("mobiliserId")) out.push("One mobiliser");
   return out;
 }

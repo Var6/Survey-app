@@ -1,6 +1,8 @@
 import { casesCol, surveysCol } from "@/lib/models";
 import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
 import { MODULE_LIST } from "@/lib/cases/modules";
+import { classifyMaternalCases } from "@/lib/cases/store";
+import { buildSurveyFilter } from "@/lib/surveys";
 import { buildCaseFilter, parseCaseQuery } from "@/lib/cases/query";
 import { SEGMENTS } from "@/lib/cases/segments";
 import type { UserDoc } from "@/lib/models";
@@ -34,7 +36,7 @@ export interface DashboardMetrics {
   /** Case-based, clickable tiles. */
   tiles: Tile[];
   /** Survey-based figures that have no case module behind them. */
-  pwd: { total: number; children: number; adults: number };
+  pwd: { total: number; children: number; adults: number; households: number };
   directorIntervention: number;
   /** Open maternal cases created before the pregnant / newborn split. */
   maternalUnclassified: number;
@@ -49,6 +51,17 @@ type Actor = Pick<UserDoc, "_id" | "role">;
 export async function computeDashboardMetrics(user: Actor): Promise<DashboardMetrics> {
   const surveys = await surveysCol();
   const cases = await casesCol();
+
+  // Maternal cases created before the pregnant / newborn split have no group
+  // yet, which made both tiles read 0. Sort them once, automatically.
+  try {
+    await classifyMaternalCases();
+  } catch (e) {
+    console.error("[dashboard] could not classify maternal cases:", e);
+  }
+  const surveyUser = { _id: user._id, role: "director" } as never;
+  const surveyCount = (flags: string) =>
+    surveys.countDocuments(buildSurveyFilter(surveyUser, new URLSearchParams(flags)));
 
   /**
    * Count cases for a link — identical logic to the list the link opens. The
@@ -120,6 +133,7 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
     pwdAgg,
     settlementAgg,
     directorIntervention,
+    pwdHouseholds,
   ] = await Promise.all([
     surveys.countDocuments({}),
     Promise.all(tileDefs.map((t) => count(t.query!, t.module))),
@@ -178,10 +192,10 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
         { $sort: { value: -1 } },
       ])
       .toArray(),
-    // Escalated to the Director — a survey flag with no case module behind it.
-    surveys.countDocuments({
-      $or: [{ "data.next_action": "escalate" }, { "data.followup_type": "urgent" }],
-    }),
+    // Escalated to the Director — a survey flag, counted with the same
+    // filter as the survey list the tile opens.
+    surveyCount("escalated=1"),
+    surveyCount("pwd=1"),
   ]);
 
   const tiles: Tile[] = tileDefs.map((t, i) => ({ ...t, value: tileValues[i] }));
@@ -213,7 +227,12 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
     },
     householdsFollowup: (householdAgg[0]?.n as number) || 0,
     tiles,
-    pwd: { total: pwdTotal, children: pwdChildren, adults: pwdTotal - pwdChildren },
+    pwd: {
+      total: pwdTotal,
+      children: pwdChildren,
+      adults: pwdTotal - pwdChildren,
+      households: pwdHouseholds,
+    },
     directorIntervention,
     maternalUnclassified,
     needsByCategory,

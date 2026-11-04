@@ -15,6 +15,7 @@ import type {
   NotificationDoc,
   CampDoc,
   MeetingDoc,
+  MeetingRecordDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
 import { moduleDef, stageLabel, subcategoryLabel } from "./cases/modules";
@@ -351,6 +352,27 @@ export function publicCamp(c: CampDoc, extra?: { cmNames?: Record<string, string
     createdByRole: c.createdByRole,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+  };
+}
+
+export function publicMeetingRecord(r: MeetingRecordDoc) {
+  return {
+    id: String(r._id),
+    meetingDate: r.meetingDate,
+    settlementCode: r.settlementCode ?? null,
+    communityName: r.communityName,
+    typeKey: r.typeKey,
+    typeLabel: r.typeLabel,
+    topic: r.topic,
+    attendanceLinks: r.attendanceLinks ?? [],
+    totalParticipants: r.totalParticipants,
+    photoLinks: r.photoLinks ?? [],
+    remarks: r.remarks ?? null,
+    cmName: r.cmName ?? null,
+    source: r.source,
+    submittedAt: r.submittedAt,
+    history: r.history ?? [],
+    updatedAt: r.updatedAt,
   };
 }
 

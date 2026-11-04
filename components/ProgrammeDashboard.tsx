@@ -21,14 +21,17 @@ const CAT_COLORS: Record<string, { donut: string; bar: string }> = {
 function Card({
   title,
   action,
+  href,
   children,
 }: {
   title?: string;
   action?: React.ReactNode;
+  /** Makes the whole card a link. */
+  href?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+  const body = (
+    <>
       {title && (
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">{title}</h3>
@@ -36,7 +39,15 @@ function Card({
         </div>
       )}
       {children}
-    </div>
+    </>
+  );
+  const cls = "rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950";
+  return href ? (
+    <Link href={href} className={`block transition hover:-translate-y-0.5 hover:shadow-md ${cls}`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
   );
 }
 
@@ -119,6 +130,7 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
     label: s.label,
     value: s.value,
     className: "bg-teal-500",
+    href: basePath ? `${basePath}/surveys?settlement=${encodeURIComponent(s.code)}` : undefined,
   }));
 
   return (
@@ -133,7 +145,7 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
 
       {/* Hero: survey progress + headline tiles */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
+        <Card href={basePath ? `${basePath}/surveys` : undefined}>
           <div className="flex items-center gap-5">
             <ProgressRing value={m.householdsSurveyed.count} max={m.householdsSurveyed.target}>
               <span className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
@@ -149,6 +161,9 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
               <p className="text-xs text-zinc-400">
                 Target {m.householdsSurveyed.target.toLocaleString("en-IN")}
               </p>
+              {basePath && (
+                <p className="mt-1 text-[11px] font-medium text-teal-600 dark:text-teal-400">View surveys →</p>
+              )}
             </div>
           </div>
         </Card>
@@ -218,13 +233,15 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
         <StatTile
           label="Persons with disabilities"
           value={m.pwd.total}
-          hint={`${m.pwd.children} children · ${m.pwd.adults} adults`}
+          hint={`${m.pwd.children} children · ${m.pwd.adults} adults · in ${m.pwd.households} households`}
+          href={basePath ? `${basePath}/surveys?pwd=1` : undefined}
         />
         <StatTile
           label="Escalated to Director"
           value={m.directorIntervention}
           tone={m.directorIntervention > 0 ? "alert" : "normal"}
-          hint="From survey flags"
+          hint="Surveys flagged for the Director"
+          href={basePath ? `${basePath}/surveys?escalated=1` : undefined}
         />
       </div>
     </div>
