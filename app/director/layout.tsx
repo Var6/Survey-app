@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import AppShell, { ShellNavGroup } from "@/components/AppShell";
+import { pendingClosureCount } from "@/lib/nav-badges";
 
 const NAV: ShellNavGroup[] = [
   { items: [{ href: "/director", label: "Overview", icon: "home" }] },
@@ -37,6 +38,15 @@ const NAV: ShellNavGroup[] = [
       { href: "/director/sync", label: "Frappe sync", icon: "sync" },
     ],
   },
+  {
+    label: "Field activity",
+    items: [
+      { href: "/director/cases/all", label: "All cases", icon: "check", exact: true },
+      { href: "/director/camps", label: "Camps", icon: "camp" },
+      { href: "/director/meetings", label: "Community meetings", icon: "users" },
+      { href: "/director/notifications", label: "Notifications", icon: "bell" },
+    ],
+  },
   { items: [{ href: "/director/profile", label: "Profile", icon: "profile" }] },
 ];
 
@@ -49,13 +59,22 @@ export default async function DirectorLayout({
   if (!user) redirect("/login");
   if (user.role !== "director") redirect("/cm");
 
+  // Badge on "All cases" = closure requests waiting for review.
+  const pending = await pendingClosureCount();
+  const nav = NAV.map((g) => ({
+    ...g,
+    items: g.items.map((it) =>
+      it.href === "/director/cases/all" ? { ...it, label: "Cases & closure review", badge: pending } : it
+    ),
+  }));
   return (
     <AppShell
       name={user.name}
       roleLabel="Director"
       avatarUrl={user.avatarUrl}
       homeHref="/director"
-      nav={NAV}
+      nav={nav}
+      notificationsArea="/director"
     >
       {children}
     </AppShell>

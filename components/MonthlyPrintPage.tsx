@@ -1,6 +1,7 @@
 import { ObjectId } from "mongodb";
 import { monthlyReportsCol, usersCol, type UserDoc } from "@/lib/models";
 import { buildMonthlyFilter } from "@/lib/monthly/query";
+import { loadMonthlyReportForUser } from "@/lib/monthly/load";
 import MonthlyReportPrint from "@/components/MonthlyReportPrint";
 import PrintButton from "@/components/PrintButton";
 import { Empty } from "@/components/ui";
@@ -25,19 +26,20 @@ export default async function MonthlyPrintPage({
   }
 
   const col = await monthlyReportsCol();
-  const filter = buildMonthlyFilter(user, sp);
 
-  // A single report can be printed on its own with ?id=<report>
+  // A single report is printed on its own with ?id=<report>. It is checked
+  // against who may READ that report, not against the list filter — otherwise
+  // a Programme Manager printing a Community Mobiliser's report (which the
+  // "my reports" filter hides) got a blank page.
   const one = sp.get("id");
+  let docs;
   if (one) {
-    try {
-      (filter as Record<string, unknown>)._id = new ObjectId(one);
-    } catch {
-      /* ignore a malformed id and fall back to the filtered list */
-    }
+    const loaded = await loadMonthlyReportForUser(one, user);
+    docs = loaded ? [loaded.doc] : [];
+  } else {
+    const filter = buildMonthlyFilter(user, sp);
+    docs = await col.find(filter).sort({ monthStart: -1, reportId: 1 }).limit(200).toArray();
   }
-
-  const docs = await col.find(filter).sort({ monthStart: -1, reportId: 1 }).limit(200).toArray();
 
   const ids = [...new Set(docs.map((d) => String(d.programmeManagerId)))];
   const users = await usersCol();

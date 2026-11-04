@@ -5,8 +5,8 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
-    await requireRoles("director", "mis", "accountant", "programme_manager");
-    const metrics = await computeDashboardMetrics();
+    const user = await requireRoles("director", "mis", "accountant", "programme_manager");
+    const metrics = await computeDashboardMetrics(user);
     return json({ metrics, at: new Date().toISOString() });
   } catch (e) {
     return handleError(e);

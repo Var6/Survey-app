@@ -4,6 +4,7 @@ import {
   CasePriority,
   subcategoryLabel,
 } from "./modules";
+import { maternalSegment } from "./segments";
 
 export interface CaseSeed {
   dedupeKey: string;
@@ -13,6 +14,8 @@ export interface CaseSeed {
   subjectName?: string;
   priority: CasePriority;
   dueDate?: string;
+  /** Finer grouping inside the module (maternal: pregnant / newborn mother). */
+  segment?: string;
   meta?: Record<string, unknown>;
 }
 
@@ -77,7 +80,13 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
   const push = (
     module: CaseModule,
     subcategory: string,
-    opts: { dedupe?: string; subject?: string; priority?: CasePriority; meta?: Row } = {}
+    opts: {
+      dedupe?: string;
+      subject?: string;
+      priority?: CasePriority;
+      meta?: Row;
+      segment?: string;
+    } = {}
   ) => {
     seeds.push({
       dedupeKey: key(module, opts.dedupe ?? ""),
@@ -87,6 +96,7 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
       subjectName: opts.subject ?? head,
       priority: opts.priority ?? "medium",
       dueDate: due,
+      segment: opts.segment,
       meta: opts.meta,
     });
   };
@@ -151,7 +161,16 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
     push("maternal", sub, {
       subject: s("preg_lactating_name") || head,
       priority,
-      meta: { registered: reg, anc, icds, delivery: del, followup: mfr },
+      // Pregnant women and mothers with a newborn are different groups.
+      segment: maternalSegment(d),
+      meta: {
+        pregnancy_month: s("pregnancy_month"),
+        registered: reg,
+        anc,
+        icds,
+        delivery: del,
+        followup: mfr,
+      },
     });
   }
 
@@ -228,6 +247,25 @@ export function deriveCasesFromSurvey(survey: SurveyDoc): CaseSeed[] {
       subject: personName(c as Row, "child_name", "member_name") || "Child",
       priority,
       meta: { age: (c as Row).child_age ?? (c as Row).member_age, status: st },
+    });
+  });
+
+  // Children aged 6–18 whose school status is only in the roster's own
+  // question (member_school_status_6_18) and not in the 4–12 child question
+  // above: without this, a dropout aged 13–18 never became a case, so the
+  // dashboard's Dropout figure missed them.
+  roster.forEach((m, i) => {
+    const a = memberYears(m);
+    if (a === null || a < 6 || a > 18) return;
+    if (String(m.child_school_status || "")) return; // already handled above
+    const st = String(m.member_school_status_6_18 || "");
+    const sub = st === "never_enrolled" ? "never_enrolled" : st === "dropout" ? "dropped_out" : "";
+    if (!sub) return;
+    push("education", sub, {
+      dedupe: `m${i}`,
+      subject: personName(m, "member_name") || "Child",
+      priority: "high",
+      meta: { age: m.member_age, status: st },
     });
   });
 

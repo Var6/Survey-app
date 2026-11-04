@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, formatDate } from "@/lib/client";
 import { monthKey, monthLabel } from "@/lib/monthly/month";
+import { daysUntilDeadline, deadlineLabel } from "@/lib/monthly/deadline";
 import { MONTHLY_VARIANTS, type MonthlyVariantKey } from "@/lib/monthly/variants";
 import { Card, Empty, btnPrimary, btnGhost } from "@/components/ui";
 
@@ -23,6 +24,7 @@ interface Row {
   submittedAt: string | null;
   reviewedAt: string | null;
   directorComments: string | null;
+  late?: boolean;
 }
 
 // Same palette as the reviewer's list so a status looks identical everywhere.
@@ -138,6 +140,27 @@ function MyMonthlyReportsList({ basePath, variantKey }: Props) {
                     {STATUS_LABEL[hi ? "hi" : "en"][r.status]}
                   </span>
                 </div>
+
+                {(r.status === "draft" || r.status === "returned") && (
+                  <p
+                    className={`mt-2 text-xs ${
+                      daysUntilDeadline(month) < 0
+                        ? "font-semibold text-red-600 dark:text-red-400"
+                        : daysUntilDeadline(month) <= 1
+                        ? "font-semibold text-amber-600 dark:text-amber-400"
+                        : "text-zinc-500"
+                    }`}
+                  >
+                    {hi ? "अंतिम तारीख़: " : "Due by: "}
+                    {deadlineLabel(month, hi ? "hi" : "en")}
+                    {daysUntilDeadline(month) < 0 && (hi ? " · देर हो चुकी है" : " · overdue")}
+                  </p>
+                )}
+                {r.late && r.status !== "draft" && (
+                  <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    {hi ? "समय सीमा के बाद जमा की गई" : "Submitted after the deadline"}
+                  </p>
+                )}
 
                 {r.status === "returned" && (
                   <p className="mt-2 whitespace-pre-wrap rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">

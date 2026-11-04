@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import AppShell, { ShellNavGroup } from "@/components/AppShell";
+import { pendingClosureCount } from "@/lib/nav-badges";
 
 const NAV: ShellNavGroup[] = [
   {
@@ -39,6 +40,15 @@ const NAV: ShellNavGroup[] = [
       { href: "/pm/reviews", label: "Team monthly reports", icon: "report" },
     ],
   },
+  {
+    label: "Field activity",
+    items: [
+      { href: "/pm/cases/all", label: "All cases", icon: "check", exact: true },
+      { href: "/pm/camps", label: "Camps", icon: "camp" },
+      { href: "/pm/meetings", label: "Community meetings", icon: "users" },
+      { href: "/pm/notifications", label: "Notifications", icon: "bell" },
+    ],
+  },
   { items: [{ href: "/pm/profile", label: "Profile", icon: "profile" }] },
 ];
 
@@ -56,13 +66,22 @@ export default async function PmLayout({ children }: { children: React.ReactNode
         : "/cm"
     );
   }
+  // Badge on "All cases" = closure requests waiting for review.
+  const pending = await pendingClosureCount();
+  const nav = NAV.map((g) => ({
+    ...g,
+    items: g.items.map((it) =>
+      it.href === "/pm/cases/all" ? { ...it, label: "Cases & closure review", badge: pending } : it
+    ),
+  }));
   return (
     <AppShell
       name={user.name}
       roleLabel="Programme Manager"
       avatarUrl={user.avatarUrl}
       homeHref="/pm"
-      nav={NAV}
+      nav={nav}
+      notificationsArea="/pm"
     >
       {children}
     </AppShell>

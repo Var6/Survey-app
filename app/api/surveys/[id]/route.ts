@@ -11,6 +11,7 @@ import {
 import { publicSurvey } from "@/lib/serialize";
 import { getSettlement, settlementLabels } from "@/lib/settlements";
 import { frappeConfigured, syncSurveyById } from "@/lib/frappe";
+import { after } from "next/server";
 import { upsertCasesForSurvey } from "@/lib/cases/store";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -145,7 +146,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       if (frappeConfigured()) {
         void syncSurveyById(_id).catch(() => {});
       }
-      void upsertCasesForSurvey(updated).catch(() => {});
+      after(() => upsertCasesForSurvey(updated).catch(() => {}));
     }
 
     const labels = await settlementLabels();

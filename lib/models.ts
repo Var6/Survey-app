@@ -20,6 +20,14 @@ export const COLLECTIONS = {
   budgets: "budgets",
   counters: "counters",
   settlements: "settlements",
+  notifications: "notifications",
+  auditLog: "audit_log",
+  caseFollowups: "case_followups",
+  caseClosures: "case_closures",
+  lookups: "lookups",
+  camps: "camps",
+  meetings: "meetings",
+  calendarLog: "calendar_sync_log",
 } as const;
 
 /* ─────────────────────────────────────────────────────────────
@@ -257,6 +265,14 @@ export interface CaseHistoryEntry {
   by?: string;
 }
 
+export type CaseWorkflowStatus =
+  | "open"
+  | "follow_up_in_progress"
+  | "closure_requested"
+  | "under_review"
+  | "revision_required"
+  | "verified_closed";
+
 export interface CaseDoc {
   _id?: ObjectId;
   caseId: string; // e.g. HLT-0001
@@ -279,6 +295,24 @@ export interface CaseDoc {
   /** Follow-up / due date, YYYY-MM-DD. */
   dueDate?: string;
   source: "survey_auto" | "manual";
+  /**
+   * Community Mobiliser responsible for follow-up. Defaults to the CM who did
+   * the survey; staff can reassign. Missing on older cases — read it through
+   * lib/cases/query.ts, which falls back to `mobiliserId`.
+   */
+  assignedCmId?: ObjectId;
+  /**
+   * Finer classification inside a module, set when the case is derived
+   * (maternal: pregnant | newborn_mother | maternal_unspecified). Education
+   * segments are derived from `subcategory` at query time.
+   */
+  segment?: string;
+  /** Follow-up / closure review state — see lib/cases/workflow.ts. Missing = legacy. */
+  workflowStatus?: CaseWorkflowStatus;
+  followupCount?: number;
+  lastFollowupAt?: Date;
+  /** The closure request currently awaiting review, if any. */
+  closureRequestId?: ObjectId;
   /** Snapshot of the survey answers that triggered this case (context). */
   meta?: Record<string, unknown>;
   /** Staff-editable module fields (referral date, application no., etc.). */
@@ -316,6 +350,191 @@ export interface MonthlyReportDoc {
   reviewedBy?: ObjectId;
   reviewedAt?: Date;
   submittedAt?: Date;
+  /** Set on submit: was it filed after the monthly deadline? (lib/monthly/deadline.ts) */
+  late?: boolean;
+  deadlineAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/* ─── Case follow-up and closure review ─────────────────────── */
+export interface CaseFollowupDoc {
+  _id?: ObjectId;
+  caseId: ObjectId;
+  caseCode: string;
+  cmId: ObjectId;
+  cmName: string;
+  /** YYYY-MM-DD the follow-up took place. */
+  followupDate: string;
+  observations: string;
+  actionsTaken: string;
+  remarks?: string;
+  attachments: { key: string; url: string; name?: string }[];
+  /** Sent by the form with each submit, so a double tap cannot save twice. */
+  clientKey?: string;
+  status: "draft" | "submitted";
+  submittedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ClosureDecision {
+  userId: ObjectId;
+  name: string;
+  role: Role;
+  decision: "approve" | "reject";
+  reason?: string;
+  at: Date;
+}
+
+export interface CaseClosureDoc {
+  _id?: ObjectId;
+  caseId: ObjectId;
+  caseCode: string;
+  requestedBy: ObjectId;
+  requestedByName: string;
+  requestedAt: Date;
+  note?: string;
+  /** pending → under_review (first decision in) → approved | rejected | superseded. */
+  status: "pending" | "under_review" | "approved" | "rejected" | "superseded";
+  /** Approval policy in force when the request was made. */
+  policy: { mode: string; requiredRoles: Role[]; text: string };
+  decisions: ClosureDecision[];
+  resolvedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/* ─── Notifications and audit ───────────────────────────────── */
+export type NotificationCategory =
+  | "case_opened"
+  | "followup_completed"
+  | "closure_requested"
+  | "closure_approved"
+  | "closure_rejected"
+  | "camp_created"
+  | "camp_updated"
+  | "meeting_created"
+  | "meeting_updated"
+  | "meeting_invited"
+  | "report_reminder";
+
+export interface NotificationDoc {
+  _id?: ObjectId;
+  userId: ObjectId;
+  category: NotificationCategory;
+  title: string;
+  body: string;
+  /** What the notification is about — the client builds the link for the viewer's role. */
+  relatedType?: "case" | "camp" | "meeting" | "monthly";
+  relatedId?: string;
+  /** Unique per recipient: a retried job can never notify twice. */
+  dedupeKey: string;
+  readAt?: Date | null;
+  createdAt: Date;
+}
+
+export interface AuditDoc {
+  _id?: ObjectId;
+  at: Date;
+  actorId?: ObjectId;
+  actorName: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  /** Human reference (case id, camp code) — never beneficiary names. */
+  ref?: string;
+  summary: string;
+  meta?: Record<string, unknown>;
+}
+
+/* ─── Configurable lists (camp types, meeting types) ────────── */
+export interface LookupDoc {
+  _id?: ObjectId;
+  list: "camp_type" | "meeting_type";
+  key: string;
+  label: string;
+  active: boolean;
+  order: number;
+  createdBy?: ObjectId;
+  createdAt: Date;
+}
+
+/* ─── Camps ─────────────────────────────────────────────────── */
+export type CalendarSyncStatus =
+  | "pending"
+  | "synced"
+  | "failed"
+  | "not_configured"
+  | "cancelled";
+
+export interface CalendarState {
+  status: CalendarSyncStatus;
+  eventId?: string;
+  htmlLink?: string;
+  attempts: number;
+  lastAttemptAt?: Date;
+  syncedAt?: Date;
+  lastError?: string;
+}
+
+export interface ScheduleHistory {
+  at: Date;
+  by: string;
+  note: string;
+}
+
+export interface CampDoc {
+  _id?: ObjectId;
+  campCode: string; // CMP-0001
+  name: string;
+  typeKey: string;
+  typeLabel: string;
+  description?: string;
+  /** YYYY-MM-DD, India time. */
+  date: string;
+  startTime?: string; // HH:MM
+  endTime?: string;
+  venue: string;
+  settlementCode?: string;
+  programme?: string;
+  responsibleName?: string;
+  responsibleUserId?: ObjectId;
+  assignedCmIds: ObjectId[];
+  instructions?: string;
+  status: "scheduled" | "cancelled" | "completed";
+  calendar: CalendarState;
+  history: ScheduleHistory[];
+  createdBy: ObjectId;
+  createdByName: string;
+  createdByRole: Role;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/* ─── Community meetings ────────────────────────────────────── */
+export interface MeetingDoc {
+  _id?: ObjectId;
+  meetingCode: string; // MTG-0001
+  title: string;
+  typeKey: string;
+  typeLabel: string;
+  description?: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  location: string;
+  settlementCode?: string;
+  agenda?: string;
+  expectedParticipants?: number;
+  notes?: string;
+  organiserCmId: ObjectId;
+  organiserName: string;
+  /** Other CMs tagged to help — any number. */
+  taggedCmIds: ObjectId[];
+  status: "scheduled" | "cancelled" | "completed";
+  history: ScheduleHistory[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -417,6 +636,24 @@ export const casesCol = () => col<CaseDoc>(COLLECTIONS.cases);
 export const budgetsCol = () => col<BudgetDoc>(COLLECTIONS.budgets);
 export const countersCol = () => col<CounterDoc>(COLLECTIONS.counters);
 export const settlementsCol = () => col<SettlementDoc>(COLLECTIONS.settlements);
+export const notificationsCol = () =>
+  col<NotificationDoc>(COLLECTIONS.notifications);
+export const auditCol = () => col<AuditDoc>(COLLECTIONS.auditLog);
+export const caseFollowupsCol = () =>
+  col<CaseFollowupDoc>(COLLECTIONS.caseFollowups);
+export const caseClosuresCol = () => col<CaseClosureDoc>(COLLECTIONS.caseClosures);
+export const lookupsCol = () => col<LookupDoc>(COLLECTIONS.lookups);
+export const campsCol = () => col<CampDoc>(COLLECTIONS.camps);
+export const meetingsCol = () => col<MeetingDoc>(COLLECTIONS.meetings);
+export const calendarLogCol = () =>
+  col<{
+    _id?: ObjectId;
+    campId: ObjectId;
+    at: Date;
+    action: string;
+    ok: boolean;
+    detail?: string;
+  }>(COLLECTIONS.calendarLog);
 
 async function col<T extends import("mongodb").Document>(
   name: string
@@ -505,6 +742,55 @@ export async function ensureIndexes(): Promise<void> {
     db
       .collection(COLLECTIONS.settlements)
       .createIndex({ hhPrefix: 1 }, { unique: true }),
+    // Case list: module/segment/status filters, the assigned-CM scope, dates.
+    db
+      .collection(COLLECTIONS.cases)
+      .createIndex({ module: 1, subcategory: 1, closed: 1, createdAt: -1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ assignedCmId: 1, closed: 1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ mobiliserId: 1, closed: 1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ workflowStatus: 1, updatedAt: -1 }),
+    db.collection(COLLECTIONS.cases).createIndex({ caseId: 1 }),
+    db
+      .collection(COLLECTIONS.caseFollowups)
+      .createIndex({ caseId: 1, createdAt: -1 }),
+    db.collection(COLLECTIONS.caseFollowups).createIndex(
+      { caseId: 1, clientKey: 1 },
+      { unique: true, partialFilterExpression: { clientKey: { $type: "string" } } }
+    ),
+    db
+      .collection(COLLECTIONS.caseClosures)
+      .createIndex({ caseId: 1, createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.caseClosures)
+      .createIndex({ status: 1, requestedAt: -1 }),
+    db
+      .collection(COLLECTIONS.caseClosures)
+      .createIndex({ "decisions.userId": 1 }),
+    // One notification per recipient per event, however often a job retries.
+    db
+      .collection(COLLECTIONS.notifications)
+      .createIndex({ userId: 1, dedupeKey: 1 }, { unique: true }),
+    db
+      .collection(COLLECTIONS.notifications)
+      .createIndex({ userId: 1, readAt: 1, createdAt: -1 }),
+    db
+      .collection(COLLECTIONS.auditLog)
+      .createIndex({ entityType: 1, entityId: 1, at: -1 }),
+    db
+      .collection(COLLECTIONS.lookups)
+      .createIndex({ list: 1, key: 1 }, { unique: true }),
+    db.collection(COLLECTIONS.camps).createIndex({ campCode: 1 }, { unique: true }),
+    db.collection(COLLECTIONS.camps).createIndex({ date: -1 }),
+    db.collection(COLLECTIONS.camps).createIndex({ assignedCmIds: 1, date: -1 }),
+    db
+      .collection(COLLECTIONS.meetings)
+      .createIndex({ meetingCode: 1 }, { unique: true }),
+    db.collection(COLLECTIONS.meetings).createIndex({ date: -1 }),
+    db.collection(COLLECTIONS.meetings).createIndex({ organiserCmId: 1, date: -1 }),
+    db.collection(COLLECTIONS.meetings).createIndex({ taggedCmIds: 1, date: -1 }),
+    db
+      .collection(COLLECTIONS.calendarLog)
+      .createIndex({ campId: 1, at: -1 }),
   ]);
 
   indexesEnsured = true;

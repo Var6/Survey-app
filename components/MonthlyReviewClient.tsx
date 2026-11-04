@@ -24,6 +24,7 @@ interface Report {
   certification: Record<string, boolean | string>;
   directorComments: string | null;
   authorRole?: Role;
+  late?: boolean;
 }
 
 function optLabel(field: Field, code: string) {
@@ -48,9 +49,16 @@ export default function MonthlyReviewClient({
   readOnly = false,
   printBase = "/director",
   authorRole,
+  bulkPdfHref,
 }: {
   /** Show only the reports written by this role. */
   authorRole?: string;
+  /**
+   * Where the "Download PDF" for the whole filtered list goes. Rendered here —
+   * and only while the list is showing — so a page never carries two PDF
+   * buttons (an opened report has its own single-report PDF instead).
+   */
+  bulkPdfHref?: string;
   /** Area prefix for the print route, e.g. "/mis". */
   printBase?: string;
   /** Viewers who may read but not approve/return (e.g. MIS). */
@@ -221,12 +229,26 @@ export default function MonthlyReviewClient({
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
-        <option value="submitted">Submitted (to review)</option>
-        <option value="approved">Approved</option>
-        <option value="returned">Returned</option>
-        <option value="">All</option>
-      </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          className={`${inputClass} flex-1`}
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          <option value="submitted">Submitted (to review)</option>
+          <option value="approved">Approved</option>
+          <option value="returned">Returned</option>
+          <option value="">All</option>
+        </select>
+        {bulkPdfHref && (
+          <a
+            href={bulkPdfHref}
+            className="rounded-lg border border-teal-600 bg-teal-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-teal-700"
+          >
+            ⬇ Download PDF
+          </a>
+        )}
+      </div>
       {err && <p className="text-sm text-red-600">{err}</p>}
       {loading ? (
         <p className="text-sm text-zinc-500">Loading…</p>
@@ -242,7 +264,14 @@ export default function MonthlyReviewClient({
                   onClick={() => open(r.id)}
                 >
                   <div>
-                    <p className="font-semibold text-zinc-900 dark:text-zinc-50">{r.reportId}</p>
+                    <p className="font-semibold text-zinc-900 dark:text-zinc-50">
+                      {r.reportId}
+                      {r.late && (
+                        <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                          Late
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-zinc-500">
                       {r.pmName} · {formatDate(r.monthStart)} – {formatDate(r.monthEnd)}
                     </p>

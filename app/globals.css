@@ -46,4 +46,33 @@ body {
   body {
     background: #ffffff !important;
   }
+
+  /* A4 page with real margins; the browser adds none when @page is set. */
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  /* Only the report prints. The sidebar, top bars, drawers, filters and
+     buttons carry print:hidden in their own components; these rules are the
+     safety net for anything fixed or sticky that slips through. */
+  [data-print="hide"],
+  .fixed,
+  .sticky {
+    display: none !important;
+  }
+  /* Long tables: repeat the header on each page, never split a row. */
+  thead {
+    display: table-header-group;
+  }
+  tr,
+  li,
+  figure,
+  img {
+    break-inside: avoid;
+  }
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
 }

@@ -10,9 +10,16 @@ import type {
   WeeklyReportDoc,
   MonthlyReportDoc,
   CaseDoc,
+  CaseFollowupDoc,
+  CaseClosureDoc,
+  NotificationDoc,
+  CampDoc,
+  MeetingDoc,
 } from "./models";
 import { SETTLEMENT_BY_CODE } from "./questionnaire/settlements";
 import { moduleDef, stageLabel, subcategoryLabel } from "./cases/modules";
+import { effectiveWorkflow, WORKFLOW_LABEL } from "./cases/workflow";
+import { SEGMENT_BY_KEY } from "./cases/segments";
 
 /** Public-safe user shape (no password hash). */
 export function publicUser(u: UserDoc) {
@@ -179,6 +186,8 @@ export function publicMonthlyReport(
     directorActionPoints: m.directorActionPoints ?? [],
     reviewedAt: m.reviewedAt ?? null,
     submittedAt: m.submittedAt ?? null,
+    late: m.late ?? false,
+    deadlineAt: m.deadlineAt ?? null,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
   };
@@ -202,7 +211,10 @@ export function publicReport(
   };
 }
 
-export function publicCase(c: CaseDoc, extra?: { mobiliserName?: string }) {
+export function publicCase(
+  c: CaseDoc,
+  extra?: { mobiliserName?: string; assignedCmName?: string }
+) {
   const settlement = SETTLEMENT_BY_CODE[c.settlementCode];
   const def = moduleDef(c.module);
   return {
@@ -223,6 +235,15 @@ export function publicCase(c: CaseDoc, extra?: { mobiliserName?: string }) {
     settlementCode: c.settlementCode,
     settlementLabel: settlement?.label ?? c.settlementCode,
     mobiliserName: extra?.mobiliserName ?? null,
+    assignedCmId: String(c.assignedCmId ?? c.mobiliserId ?? "") || null,
+    assignedCmName: extra?.assignedCmName ?? extra?.mobiliserName ?? null,
+    workflowStatus: effectiveWorkflow(c),
+    workflowLabel: WORKFLOW_LABEL[effectiveWorkflow(c)],
+    segment: c.segment ?? null,
+    segmentLabel: c.segment ? SEGMENT_BY_KEY[c.segment]?.label ?? null : null,
+    followupCount: c.followupCount ?? 0,
+    lastFollowupAt: c.lastFollowupAt ?? null,
+    closureRequestId: c.closureRequestId ? String(c.closureRequestId) : null,
     assignee: c.assignee ?? null,
     dueDate: c.dueDate ?? null,
     source: c.source,
@@ -241,6 +262,128 @@ export function publicCase(c: CaseDoc, extra?: { mobiliserName?: string }) {
   };
 }
 export type PublicCase = ReturnType<typeof publicCase>;
+
+export function publicFollowup(f: CaseFollowupDoc) {
+  return {
+    id: String(f._id),
+    caseId: String(f.caseId),
+    caseCode: f.caseCode,
+    cmName: f.cmName,
+    followupDate: f.followupDate,
+    observations: f.observations,
+    actionsTaken: f.actionsTaken,
+    remarks: f.remarks ?? null,
+    attachments: f.attachments ?? [],
+    status: f.status,
+    submittedAt: f.submittedAt ?? null,
+    createdAt: f.createdAt,
+  };
+}
+
+export function publicClosure(c: CaseClosureDoc) {
+  return {
+    id: String(c._id),
+    caseCode: c.caseCode,
+    requestedByName: c.requestedByName,
+    requestedAt: c.requestedAt,
+    note: c.note ?? null,
+    status: c.status,
+    policy: c.policy,
+    decisions: c.decisions.map((d) => ({
+      userId: String(d.userId),
+      name: d.name,
+      role: d.role,
+      decision: d.decision,
+      reason: d.reason ?? null,
+      at: d.at,
+    })),
+    resolvedAt: c.resolvedAt ?? null,
+  };
+}
+
+export function publicNotification(n: NotificationDoc) {
+  return {
+    id: String(n._id),
+    category: n.category,
+    title: n.title,
+    body: n.body,
+    relatedType: n.relatedType ?? null,
+    relatedId: n.relatedId ?? null,
+    read: !!n.readAt,
+    readAt: n.readAt ?? null,
+    createdAt: n.createdAt,
+  };
+}
+
+export function publicCamp(c: CampDoc, extra?: { cmNames?: Record<string, string> }) {
+  return {
+    id: String(c._id),
+    campCode: c.campCode,
+    name: c.name,
+    typeKey: c.typeKey,
+    typeLabel: c.typeLabel,
+    description: c.description ?? null,
+    date: c.date,
+    startTime: c.startTime ?? null,
+    endTime: c.endTime ?? null,
+    venue: c.venue,
+    settlementCode: c.settlementCode ?? null,
+    settlementLabel: c.settlementCode
+      ? SETTLEMENT_BY_CODE[c.settlementCode]?.label ?? c.settlementCode
+      : null,
+    programme: c.programme ?? null,
+    responsibleName: c.responsibleName ?? null,
+    assignedCms: (c.assignedCmIds || []).map((id) => ({
+      id: String(id),
+      name: extra?.cmNames?.[String(id)] ?? "CM",
+    })),
+    instructions: c.instructions ?? null,
+    status: c.status,
+    calendar: {
+      status: c.calendar?.status ?? "pending",
+      htmlLink: c.calendar?.htmlLink ?? null,
+      lastError: c.calendar?.lastError ?? null,
+      attempts: c.calendar?.attempts ?? 0,
+      syncedAt: c.calendar?.syncedAt ?? null,
+    },
+    history: c.history ?? [],
+    createdByName: c.createdByName,
+    createdByRole: c.createdByRole,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
+
+export function publicMeeting(m: MeetingDoc, extra?: { cmNames?: Record<string, string> }) {
+  return {
+    id: String(m._id),
+    meetingCode: m.meetingCode,
+    title: m.title,
+    typeKey: m.typeKey,
+    typeLabel: m.typeLabel,
+    description: m.description ?? null,
+    date: m.date,
+    startTime: m.startTime ?? null,
+    endTime: m.endTime ?? null,
+    location: m.location,
+    settlementCode: m.settlementCode ?? null,
+    settlementLabel: m.settlementCode
+      ? SETTLEMENT_BY_CODE[m.settlementCode]?.label ?? m.settlementCode
+      : null,
+    agenda: m.agenda ?? null,
+    expectedParticipants: m.expectedParticipants ?? null,
+    notes: m.notes ?? null,
+    organiser: { id: String(m.organiserCmId), name: m.organiserName },
+    taggedCms: (m.taggedCmIds || []).map((id) => ({
+      id: String(id),
+      name: extra?.cmNames?.[String(id)] ?? "CM",
+    })),
+    status: m.status,
+    history: m.history ?? [],
+    createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
+  };
+}
 
 export function publicSurvey(
   s: SurveyDoc,

@@ -5,13 +5,14 @@
 
 /**
  * The month a monthly report is about by default: the one that just finished.
- * Reports are filed after the month ends (CM by the 3rd, PM and MIS by the
- * 5th), so opening the form in October should offer September.
+ * Reports are filed after the month ends and are due on the 4th (see
+ * ./deadline.ts), so opening the form in October should offer September.
+ * Worked out on the India calendar, so on the night of the 31st it is already
+ * the new month for the people filing.
  */
 export function defaultReportMonth(now: Date = new Date()): string {
-  // UTC throughout, like monthKey(), so the two can never disagree at a
-  // month boundary.
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+  const d = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), 1));
   d.setUTCMonth(d.getUTCMonth() - 1);
   return monthKey(d);
 }

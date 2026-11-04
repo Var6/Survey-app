@@ -3,6 +3,8 @@ import { json, handleError, requireRoles } from "@/lib/api";
 import { monthlyReportsCol } from "@/lib/models";
 import { publicMonthlyReport } from "@/lib/serialize";
 import { variantForAuthorRole } from "@/lib/monthly/variants";
+import { deadlineFor, isLate } from "@/lib/monthly/deadline";
+import { monthKey } from "@/lib/monthly/month";
 
 export const runtime = "nodejs";
 
@@ -61,9 +63,20 @@ export async function POST(_req: Request, ctx: { params: Promise<{ id: string }>
     }
 
     const now = new Date();
+    // Late filings are still accepted (never lock people out) but are marked,
+    // so the review screens can show them. The deadline is the 4th, India time.
+    const month = monthKey(doc.monthStart);
     await col.updateOne(
       { _id },
-      { $set: { status: "submitted", submittedAt: now, updatedAt: now } }
+      {
+        $set: {
+          status: "submitted",
+          submittedAt: now,
+          updatedAt: now,
+          late: isLate(month, now),
+          deadlineAt: deadlineFor(month),
+        },
+      }
     );
     const updated = await col.findOne({ _id });
     return json({ report: publicMonthlyReport(updated!, { pmName: user.name }) });

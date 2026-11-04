@@ -10,6 +10,7 @@ import {
   type MonthlyVariantKey,
 } from "@/lib/monthly/variants";
 import { defaultReportMonth, monthLabel, recentMonths } from "@/lib/monthly/month";
+import { MONTHLY_DEADLINE_DAY, daysUntilDeadline, deadlineLabel } from "@/lib/monthly/deadline";
 import type { SettlementStatus } from "@/lib/models";
 import { Card, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
 import WeeklyDashboard from "@/components/WeeklyDashboard";
@@ -311,6 +312,7 @@ export default function MonthlyReportForm({
           {report.status}
         </span>
       </div>
+      <DeadlineNote month={month} hi={hi} open={report.status === "draft" || report.status === "returned"} />
     </div>
   );
 
@@ -465,5 +467,29 @@ export default function MonthlyReportForm({
         </div>
       )}
     </div>
+  );
+}
+
+
+/** "Due by 4 November 2026" — turns amber in the last days and red once late. */
+function DeadlineNote({ month, hi, open }: { month: string; hi: boolean; open: boolean }) {
+  const left = daysUntilDeadline(month);
+  const when = deadlineLabel(month, hi ? "hi" : "en");
+  const tone =
+    !open
+      ? "text-zinc-500"
+      : left < 0
+      ? "text-red-600 dark:text-red-400"
+      : left <= 1
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-zinc-500";
+  return (
+    <p className={`basis-full text-xs ${tone}`}>
+      {hi
+        ? `जमा करने की अंतिम तारीख़ (हर महीने की ${MONTHLY_DEADLINE_DAY} तारीख़): ${when}`
+        : `Due by the ${MONTHLY_DEADLINE_DAY}th of the month — ${when}`}
+      {open && left < 0 && (hi ? " · देर हो चुकी है" : " · overdue")}
+      {open && left >= 0 && left <= 3 && (hi ? ` · ${left} दिन बाक़ी` : ` · ${left === 0 ? "due today" : `${left} day${left === 1 ? "" : "s"} left`}`)}
+    </p>
   );
 }

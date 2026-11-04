@@ -159,16 +159,6 @@ export default function ReportingHub({
           >
             ⬇ Download Excel
           </a>
-          {/* Hard copies: opens every report matching the current filter,
-              one per page, ready to save as PDF or print. */}
-          {type === "monthly" && (
-            <a
-              href={`${printBase}/monthly-print`}
-              className="rounded-lg border border-teal-600 bg-teal-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-teal-700"
-            >
-              ⬇ Download PDF
-            </a>
-          )}
         </div>
       )}
       {type === "weekly" && <WeeklyReviewClient readOnly={!canReview} />}
@@ -176,6 +166,8 @@ export default function ReportingHub({
         <MonthlyReviewClient
           readOnly={!canReview}
           printBase={printBase}
+          // The one bulk PDF: every report matching the filter, one per page.
+          bulkPdfHref={`${printBase}/monthly-print`}
           authorRole={role === "pm" ? "programme_manager" : role ?? undefined}
         />
       )}

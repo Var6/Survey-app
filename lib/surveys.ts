@@ -33,8 +33,33 @@ export function buildSurveyFilter(
   else if (sync === "unsynced") filter["sync.status"] = { $ne: "synced" };
   else if (sync) filter["sync.status"] = sync;
 
+  // Date range on the survey's creation date — the date shown in the list and
+  // in the export. Whole India calendar days, both ends included.
+  const from = params.get("from");
+  const to = params.get("to");
+  const range: Record<string, Date> = {};
+  if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) range.$gte = new Date(`${from}T00:00:00+05:30`);
+  if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) range.$lte = new Date(`${to}T23:59:59.999+05:30`);
+  if (Object.keys(range).length) filter.createdAt = range;
+
   return filter;
 }
+
+/** Human description of the active filters, for export file names and PDF headers. */
+export function describeSurveyFilter(params: URLSearchParams): string[] {
+  const out: string[] = [];
+  const from = params.get("from");
+  const to = params.get("to");
+  if (from || to) out.push(`Dates: ${from || "start"} to ${to || "today"}`);
+  if (params.get("settlement")) out.push(`Settlement: ${params.get("settlement")}`);
+  if (params.get("status")) out.push(`Status: ${params.get("status")}`);
+  if (params.get("sync")) out.push(`Sync: ${params.get("sync")}`);
+  if (params.get("mobiliserId")) out.push("One mobiliser");
+  return out;
+}
+
+/** Largest export we will build in one go. Above this we refuse rather than silently cut rows. */
+export const EXPORT_MAX_ROWS = 20000;
 
 /** Attach the mobiliser display name to each survey via one batched query. */
 export async function attachMobiliserNames(

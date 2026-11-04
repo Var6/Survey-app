@@ -1,15 +1,19 @@
 import Image from "next/image";
 import LogoutButton from "./LogoutButton";
 import ThemeToggle from "./ThemeToggle";
+import NotificationBell from "./NotificationBell";
 
 export default function AppHeader({
   name,
   roleLabel,
   avatarUrl,
+  notificationsArea,
 }: {
   name: string;
   roleLabel: string;
   avatarUrl?: string | null;
+  /** Area prefix ("/cm") — shows the notification bell when set. */
+  notificationsArea?: string;
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/90 backdrop-blur print:hidden dark:border-zinc-800 dark:bg-black/80">
@@ -42,6 +46,7 @@ export default function AppHeader({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {notificationsArea && <NotificationBell area={notificationsArea} />}
           <ThemeToggle />
           <LogoutButton />
         </div>

@@ -6,7 +6,8 @@ import {
   type CaseDoc,
 } from "@/lib/models";
 import { deriveCasesFromSurvey } from "./derive";
-import { MODULES, firstStage } from "./modules";
+import { MODULES, firstStage, subcategoryLabel } from "./modules";
+import { notifyUsers } from "@/lib/notifications";
 
 /**
  * Derive the thematic cases for one survey and upsert them idempotently.
@@ -14,7 +15,8 @@ import { MODULES, firstStage } from "./modules";
  * only descriptive fields are refreshed. New cases get a sequential caseId.
  */
 export async function upsertCasesForSurvey(
-  survey: SurveyDoc
+  survey: SurveyDoc,
+  opts: { notify?: boolean } = {}
 ): Promise<{ created: number; updated: number }> {
   const seeds = deriveCasesFromSurvey(survey);
   if (!seeds.length) return { created: 0, updated: 0 };
@@ -22,6 +24,26 @@ export async function upsertCasesForSurvey(
   const now = new Date();
   let created = 0;
   let updated = 0;
+  // Tell the CM about each case on a finished survey. The notification is
+  // keyed on the case, so re-saving a survey (or re-running a backfill) never
+  // repeats it; historical backfills pass notify:false.
+  const notifyCm = opts.notify !== false && survey.status === "complete";
+  const announce = async (
+    caseId: string,
+    caseObjectId: unknown,
+    subcategory: string,
+    module: (typeof seeds)[number]["module"]
+  ) => {
+    if (!notifyCm || !survey.mobiliserId) return;
+    await notifyUsers([survey.mobiliserId], {
+      category: "case_opened",
+      title: `New follow-up case ${caseId}`,
+      body: `${caseId} · ${subcategoryLabel(module, subcategory)} · household ${survey.householdId}. Open it to record your follow-up.`,
+      relatedType: "case",
+      relatedId: String(caseObjectId),
+      dedupeKey: `case_opened:${caseId}`,
+    });
+  };
 
   for (const seed of seeds) {
     const existing = await col.findOne({ dedupeKey: seed.dedupeKey });
@@ -37,11 +59,18 @@ export async function upsertCasesForSurvey(
             settlementCode: survey.settlementCode,
             householdId: survey.householdId,
             mobiliserId: survey.mobiliserId,
+            ...(seed.segment ? { segment: seed.segment } : {}),
             meta: seed.meta ?? existing.meta,
             updatedAt: now,
           },
         }
       );
+      // Older cases predate assignment: the surveying CM is responsible.
+      await col.updateOne(
+        { _id: existing._id, assignedCmId: { $exists: false } },
+        { $set: { assignedCmId: survey.mobiliserId } }
+      );
+      await announce(existing.caseId, existing._id, seed.subcategory, seed.module);
       updated++;
       continue;
     }
@@ -65,6 +94,10 @@ export async function upsertCasesForSurvey(
       mobiliserId: survey.mobiliserId,
       dueDate: seed.dueDate,
       source: "survey_auto",
+      assignedCmId: survey.mobiliserId,
+      segment: seed.segment,
+      workflowStatus: "open",
+      followupCount: 0,
       meta: seed.meta,
       fields: {},
       history: [{ at: now, stage, note: "Auto-created from survey" }],
@@ -72,8 +105,9 @@ export async function upsertCasesForSurvey(
       updatedAt: now,
     };
     try {
-      await col.insertOne(doc);
+      const ins = await col.insertOne(doc);
       created++;
+      await announce(doc.caseId, ins.insertedId, doc.subcategory, doc.module);
     } catch (e) {
       if ((e as { code?: number }).code === 11000) updated++;
       else throw e;
@@ -96,7 +130,7 @@ export async function backfillAllCases(): Promise<{
   let updated = 0;
   for await (const survey of cursor) {
     sc++;
-    const r = await upsertCasesForSurvey(survey as SurveyDoc);
+    const r = await upsertCasesForSurvey(survey as SurveyDoc, { notify: false });
     created += r.created;
     updated += r.updated;
   }

@@ -7,6 +7,9 @@ import OfflineSync from "@/components/OfflineSync";
 const NAV = [
   { href: "/cm", label: "Home" },
   { href: "/cm/surveys", label: "Surveys" },
+  { href: "/cm/cases", label: "Cases" },
+  { href: "/cm/meetings", label: "Meetings" },
+  { href: "/cm/camps", label: "Camps" },
   { href: "/cm/requisitions", label: "Finance" },
   { href: "/cm/reports", label: "Reports" },
   { href: "/cm/monthly", label: "Monthly reports" },
@@ -28,6 +31,7 @@ export default async function CmLayout({
         name={user.name}
         roleLabel="Community Mobiliser"
         avatarUrl={user.avatarUrl}
+        notificationsArea="/cm"
       />
       <RoleNav items={NAV} homeHref="/cm" />
       <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>

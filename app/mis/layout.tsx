@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import AppShell, { ShellNavGroup } from "@/components/AppShell";
+import { pendingClosureCount } from "@/lib/nav-badges";
 
 const NAV: ShellNavGroup[] = [
   {
@@ -28,6 +29,15 @@ const NAV: ShellNavGroup[] = [
       { href: "/mis/cases/women", label: "Women & girls", icon: "women" },
     ],
   },
+  {
+    label: "Field activity",
+    items: [
+      { href: "/mis/cases/all", label: "All cases", icon: "check", exact: true },
+      { href: "/mis/camps", label: "Camps", icon: "camp" },
+      { href: "/mis/meetings", label: "Community meetings", icon: "users" },
+      { href: "/mis/notifications", label: "Notifications", icon: "bell" },
+    ],
+  },
   { items: [{ href: "/mis/profile", label: "Profile", icon: "profile" }] },
 ];
 
@@ -45,13 +55,22 @@ export default async function MisLayout({ children }: { children: React.ReactNod
         : "/cm"
     );
   }
+  // Badge on "All cases" = closure requests waiting for review.
+  const pending = await pendingClosureCount();
+  const nav = NAV.map((g) => ({
+    ...g,
+    items: g.items.map((it) =>
+      it.href === "/mis/cases/all" ? { ...it, label: "Cases & closure review", badge: pending } : it
+    ),
+  }));
   return (
     <AppShell
       name={user.name}
       roleLabel="Supervisor / MIS"
       avatarUrl={user.avatarUrl}
       homeHref="/mis"
-      nav={NAV}
+      nav={nav}
+      notificationsArea="/mis"
     >
       {children}
     </AppShell>

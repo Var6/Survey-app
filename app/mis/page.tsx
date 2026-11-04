@@ -24,7 +24,7 @@ export default async function MisHome() {
         subtitle={d ? `Current week · ${d.reportId}` : undefined}
       />
       <div className="mb-6">
-        <ProgrammeDashboard />
+        <ProgrammeDashboard basePath="/mis" />
       </div>
       <h2 className="mb-3 text-base font-bold text-zinc-800 dark:text-zinc-100">
         Weekly command dashboard

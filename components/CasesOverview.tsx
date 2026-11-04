@@ -17,10 +17,12 @@ interface ModuleSummary {
   open: number;
   urgent: number;
   overdue: number;
+  pendingReview: number;
 }
 interface SummaryResp {
   summary: ModuleSummary[];
-  totals: { open: number; urgent: number; overdue: number };
+  totals: { open: number; urgent: number; overdue: number; pendingReview: number };
+  segments: { key: string; module: string; label: string; open: number }[];
   at: string;
 }
 
@@ -95,18 +97,39 @@ export default function CasesOverview({ basePath }: { basePath: string }) {
 
       {data && (
         <>
-          <div className="grid grid-cols-3 gap-4">
-            <StatTile label="Open cases" value={data.totals.open} />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatTile label="Open cases" value={data.totals.open} href={`${basePath}/cases/all`} />
             <StatTile
               label="Urgent (open)"
               value={data.totals.urgent}
               tone={data.totals.urgent > 0 ? "alert" : "normal"}
+              href={`${basePath}/cases/all?priority=urgent`}
             />
             <StatTile
               label="Overdue"
               value={data.totals.overdue}
               tone={data.totals.overdue > 0 ? "warn" : "normal"}
+              href={`${basePath}/cases/all?status=overdue`}
             />
+            <StatTile
+              label="Awaiting closure review"
+              value={data.totals.pendingReview}
+              tone={data.totals.pendingReview > 0 ? "warn" : "normal"}
+              href={`${basePath}/cases/all?closure=pending`}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            {data.segments
+              .filter((s) => s.key !== "maternal_unspecified" || s.open > 0)
+              .map((s) => (
+                <StatTile
+                  key={s.key}
+                  label={s.label}
+                  value={s.open}
+                  href={`${basePath}/cases/${s.module}?segment=${s.key}`}
+                />
+              ))}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

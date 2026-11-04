@@ -10,7 +10,7 @@ import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
  * dashboard at the top of the form. Only verification, explanation and next
  * steps are typed by the mobiliser.
  *
- * Submitted to the Programme Manager by the 3rd of every month.
+ * Submitted to the Programme Manager by the 4th of every month (lib/monthly/deadline.ts).
  */
 
 const o = (code: string, en: string, hi: string): Option => ({ code, en, hi });

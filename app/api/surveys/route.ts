@@ -13,6 +13,7 @@ import { publicSurvey } from "@/lib/serialize";
 import { getSettlement, settlementLabels } from "@/lib/settlements";
 import { FORM_VERSION } from "@/lib/questionnaire";
 import { frappeConfigured, syncSurveyById } from "@/lib/frappe";
+import { after } from "next/server";
 import { upsertCasesForSurvey } from "@/lib/cases/store";
 
 export async function GET(req: Request) {
@@ -21,13 +22,23 @@ export async function GET(req: Request) {
     const params = new URL(req.url).searchParams;
     const filter = buildSurveyFilter(user, params);
     const limit = Math.min(Math.max(Number(params.get("limit")) || 50, 1), 200);
-    const skip = Math.max(Number(params.get("skip")) || 0, 0);
+    // `page` (1-based) is what the screens use; `skip` stays for older callers.
+    const page = Math.max(Number(params.get("page")) || 1, 1);
+    const skip = params.get("page")
+      ? (page - 1) * limit
+      : Math.max(Number(params.get("skip")) || 0, 0);
 
     const surveys = await surveysCol();
-    const [docs, total] = await Promise.all([
-      surveys.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+    const [docs, total, byStatus, bySync] = await Promise.all([
+      // _id breaks ties so a page boundary never repeats or skips a survey
+      surveys.find(filter).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).toArray(),
       surveys.countDocuments(filter),
+      // Summary of the WHOLE filtered set, not just this page.
+      surveys.aggregate<{ _id: unknown; n: number }>([{ $match: filter }, { $group: { _id: "$status", n: { $sum: 1 } } }]).toArray(),
+      surveys.aggregate<{ _id: unknown; n: number }>([{ $match: filter }, { $group: { _id: "$sync.status", n: { $sum: 1 } } }]).toArray(),
     ]);
+    const count = (rows: { _id: unknown; n: number }[], k: string) =>
+      rows.find((r) => r._id === k)?.n ?? 0;
 
     const withNames = await attachMobiliserNames(docs);
     const labels = await settlementLabels();
@@ -41,6 +52,15 @@ export async function GET(req: Request) {
       total,
       limit,
       skip,
+      page,
+      pages: Math.max(Math.ceil(total / limit), 1),
+      summary: {
+        complete: count(byStatus, "complete"),
+        partial: count(byStatus, "partial"),
+        refused: count(byStatus, "refused_midway"),
+        synced: count(bySync, "synced"),
+        notSynced: total - count(bySync, "synced"),
+      },
     });
   } catch (e) {
     return handleError(e);
@@ -148,7 +168,9 @@ export async function POST(req: Request) {
     }
 
     // Best-effort, non-blocking: auto-create thematic cases from this survey.
-    void upsertCasesForSurvey({ ...doc, _id: res.insertedId }).catch(() => {});
+    // `after` keeps the work alive past the response on serverless hosting, so
+    // the cases — and the CM's "new case" notifications — are never dropped.
+    after(() => upsertCasesForSurvey({ ...doc, _id: res.insertedId }).catch(() => {}));
 
     return json(
       {

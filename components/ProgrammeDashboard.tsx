@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { apiFetch } from "@/lib/client";
 import type { DashboardMetrics } from "@/lib/dashboard/metrics";
@@ -12,8 +13,9 @@ const CAT_COLORS: Record<string, { donut: string; bar: string }> = {
   health: { donut: "text-rose-500", bar: "bg-rose-500" },
   maternal: { donut: "text-violet-500", bar: "bg-violet-500" },
   education: { donut: "text-amber-500", bar: "bg-amber-500" },
-  disability: { donut: "text-sky-500", bar: "bg-sky-500" },
-  pension: { donut: "text-emerald-500", bar: "bg-emerald-500" },
+  early_childhood: { donut: "text-sky-500", bar: "bg-sky-500" },
+  youth: { donut: "text-indigo-500", bar: "bg-indigo-500" },
+  women: { donut: "text-pink-500", bar: "bg-pink-500" },
 };
 
 function Card({
@@ -38,7 +40,14 @@ function Card({
   );
 }
 
-export default function ProgrammeDashboard() {
+/** Where a case tile or legend row opens: the module page, filters preserved. */
+function caseHref(basePath: string | undefined, module: string | undefined, query: string | undefined) {
+  // Finance has no case pages: its tiles stay plain numbers.
+  if (!basePath) return undefined;
+  return `${basePath}/cases/${module || "all"}${query ? `?${query}` : ""}`;
+}
+
+export default function ProgrammeDashboard({ basePath }: { basePath?: string }) {
   const [m, setM] = useState<DashboardMetrics | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [updated, setUpdated] = useState("");
@@ -77,6 +86,22 @@ export default function ProgrammeDashboard() {
     );
   }
 
+  const tile = (key: string) => m.tiles.find((t) => t.key === key)!;
+  // A plain function (not a component) so it can read `m` and `basePath`.
+  const caseTile = (k: string, hint?: string) => {
+    const t = tile(k);
+    return (
+      <StatTile
+        key={k}
+        label={t.label}
+        value={t.value}
+        hint={hint ?? t.hint}
+        tone={t.value > 0 && t.tone ? t.tone : "normal"}
+        href={caseHref(basePath, t.module, t.query)}
+      />
+    );
+  };
+
   const donutData = m.needsByCategory
     .filter((c) => c.value > 0)
     .map((c) => ({
@@ -88,6 +113,7 @@ export default function ProgrammeDashboard() {
     label: c.label,
     value: c.value,
     className: CAT_COLORS[c.key]?.bar || "bg-zinc-400",
+    href: caseHref(basePath, c.module, "status=open"),
   }));
   const settlementBars = m.bySettlement.slice(0, 12).map((s) => ({
     label: s.label,
@@ -127,24 +153,16 @@ export default function ProgrammeDashboard() {
           </div>
         </Card>
         <div className="grid grid-cols-2 gap-4 lg:col-span-2">
-          <StatTile label="Households requiring follow-up" value={m.householdsFollowup} icon={<span className="text-lg">↻</span>} />
-          <StatTile label="Open action cases" value={m.openActionCases} />
-          <StatTile
-            label="High-priority / urgent"
-            value={m.highPriority}
-            tone={m.highPriority > 0 ? "alert" : "normal"}
-          />
-          <StatTile
-            label="Cases needing Director intervention"
-            value={m.directorIntervention}
-            tone={m.directorIntervention > 0 ? "alert" : "normal"}
-          />
+          {caseTile("open", `${m.householdsFollowup.toLocaleString("en-IN")} households`)}
+          {caseTile("urgent")}
+          {caseTile("overdue")}
+          {caseTile("review")}
         </div>
       </div>
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Case load by thematic area">
+        <Card title="Open cases by thematic area">
           {donutData.length > 0 ? (
             <div className="flex items-center gap-6">
               <Donut data={donutData} />
@@ -165,22 +183,49 @@ export default function ProgrammeDashboard() {
         </Card>
       </div>
 
+      {/* Children and mothers — each group separate, each opens its own report */}
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+          Children and mothers
+        </h3>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {caseTile("out_of_school", "Never enrolled or not attending")}
+          {caseTile("dropout", "Enrolled earlier, then left")}
+          {caseTile("pregnant", "Currently pregnant")}
+          {caseTile("newborn_mother", "Delivered in the last 6 months")}
+        </div>
+        {m.maternalUnclassified > 0 && basePath && (
+          <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+            {m.maternalUnclassified.toLocaleString("en-IN")} open maternal case
+            {m.maternalUnclassified === 1 ? " is" : "s are"} not yet sorted into pregnant / newborn.{" "}
+            <Link
+              href={caseHref(basePath, "maternal", "status=open&segment=maternal_unspecified")!}
+              className="font-medium underline"
+            >
+              View them
+            </Link>
+            {" · "}
+            <Link href={`${basePath}/cases`} className="font-medium underline">
+              Use “Generate from surveys” to classify them
+            </Link>
+          </p>
+        )}
+      </div>
+
       {/* Remaining metric tiles */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <StatTile
-          label="Overdue cases"
-          value={m.overdueCases}
-          tone={m.overdueCases > 0 ? "alert" : "normal"}
-        />
-        <StatTile label="Out-of-school children" value={m.outOfSchool} tone={m.outOfSchool > 0 ? "warn" : "normal"} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {caseTile("pending_docs")}
         <StatTile
           label="Persons with disabilities"
           value={m.pwd.total}
           hint={`${m.pwd.children} children · ${m.pwd.adults} adults`}
         />
-        <StatTile label="Pregnant / new mothers" value={m.pregnantFollowup} tone={m.pregnantFollowup > 0 ? "warn" : "normal"} />
-        <StatTile label="Pending social security & docs" value={m.pendingDocs} />
-        <StatTile label="Requiring follow-up" value={m.householdsFollowup} />
+        <StatTile
+          label="Escalated to Director"
+          value={m.directorIntervention}
+          tone={m.directorIntervention > 0 ? "alert" : "normal"}
+          hint="From survey flags"
+        />
       </div>
     </div>
   );

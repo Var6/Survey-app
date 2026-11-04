@@ -2,7 +2,7 @@ import type { Section, Option, Field } from "@/lib/questionnaire";
 
 /**
  * Supervisor cum MIS Assistant monthly report (MISM module).
- * Submitted to the Programme Manager by the 5th of every month.
+ * Submitted to the Programme Manager by the 4th of every month (lib/monthly/deadline.ts).
  */
 
 const o = (code: string, en: string): Option => ({ code, en, hi: en });

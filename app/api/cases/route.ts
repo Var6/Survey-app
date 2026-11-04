@@ -1,57 +1,46 @@
+import { ObjectId } from "mongodb";
 import { json, handleError, requireRoles } from "@/lib/api";
-import { casesCol } from "@/lib/models";
+import { usersCol } from "@/lib/models";
 import { publicCase } from "@/lib/serialize";
-import { PRIORITY_ORDER } from "@/lib/cases/modules";
+import { buildCaseFilter, listCases, parseCaseQuery, parsePaging } from "@/lib/cases/query";
 
 export const runtime = "nodejs";
 
+/**
+ * Paged case list. Filtering, sorting, counting and paging all happen in
+ * MongoDB — the browser only ever receives one page (100 by default).
+ * Community Mobilisers get the same endpoint, scoped to their own cases.
+ */
 export async function GET(req: Request) {
   try {
-    await requireRoles("director", "mis", "programme_manager");
-    const url = new URL(req.url);
-    const p = url.searchParams;
-    const module = p.get("module") || undefined;
-    const status = p.get("status") || "open"; // open | closed | overdue | all
-    const subcategory = p.get("subcategory") || undefined;
-    const settlement = p.get("settlement") || undefined;
-    const priority = p.get("priority") || undefined;
-    const q = (p.get("q") || "").trim();
-    const limit = Math.min(Number(p.get("limit")) || 300, 500);
-    const today = new Date().toISOString().slice(0, 10);
+    const user = await requireRoles("director", "mis", "programme_manager", "cm");
+    const p = new URL(req.url).searchParams;
+    const q = parseCaseQuery(p);
+    const paging = parsePaging(p);
 
-    const filter: Record<string, unknown> = {};
-    if (module) filter.module = module;
-    if (subcategory) filter.subcategory = subcategory;
-    if (settlement) filter.settlementCode = settlement;
-    if (priority) filter.priority = priority;
-    if (status === "open") filter.closed = false;
-    else if (status === "closed") filter.closed = true;
-    else if (status === "overdue") {
-      filter.closed = false;
-      filter.dueDate = { $gt: "", $lt: today };
-    }
-    if (q) {
-      filter.$or = [
-        { caseId: { $regex: q, $options: "i" } },
-        { subjectName: { $regex: q, $options: "i" } },
-        { householdId: { $regex: q, $options: "i" } },
-        { title: { $regex: q, $options: "i" } },
-      ];
+    const filter = await buildCaseFilter(user, q);
+    const { docs, total } = await listCases(filter, paging);
+
+    const cmIds = [
+      ...new Set(docs.map((c) => String(c.assignedCmId ?? c.mobiliserId ?? "")).filter(Boolean)),
+    ].map((id) => new ObjectId(id));
+    const names = new Map<string, string>();
+    if (cmIds.length) {
+      const users = await (await usersCol())
+        .find({ _id: { $in: cmIds } }, { projection: { name: 1 } })
+        .toArray();
+      for (const u of users) names.set(String(u._id), u.name);
     }
 
-    const col = await casesCol();
-    const docs = await col.find(filter).limit(limit).toArray();
-    // Sort: open first, then by priority, overdue due dates, newest.
-    docs.sort((a, b) => {
-      if (a.closed !== b.closed) return a.closed ? 1 : -1;
-      const pr = PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority);
-      if (pr !== 0) return pr;
-      const ad = a.dueDate || "9999";
-      const bd = b.dueDate || "9999";
-      if (ad !== bd) return ad < bd ? -1 : 1;
-      return b.createdAt > a.createdAt ? 1 : -1;
+    return json({
+      cases: docs.map((c) =>
+        publicCase(c, { assignedCmName: names.get(String(c.assignedCmId ?? c.mobiliserId)) })
+      ),
+      total,
+      page: paging.page,
+      pageSize: paging.pageSize,
+      pages: Math.max(Math.ceil(total / paging.pageSize), 1),
     });
-    return json({ cases: docs.map((c) => publicCase(c)) });
   } catch (e) {
     return handleError(e);
   }

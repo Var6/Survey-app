@@ -6,6 +6,7 @@
  * and scales with its container.
  */
 
+import Link from "next/link";
 import { ReactNode } from "react";
 
 /* ── Progress ring / donut ─────────────────────────────────────── */
@@ -148,12 +149,15 @@ export function StatTile({
   hint,
   tone = "normal",
   icon,
+  href,
 }: {
   label: string;
   value: number | string;
   hint?: string;
   tone?: "normal" | "alert" | "good" | "warn";
   icon?: ReactNode;
+  /** Makes the whole tile a link to the report behind the number. */
+  href?: string;
 }) {
   const tones: Record<string, string> = {
     normal: "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950",
@@ -167,8 +171,8 @@ export function StatTile({
     warn: "text-amber-600 dark:text-amber-400",
     good: "text-emerald-600 dark:text-emerald-400",
   };
-  return (
-    <div className={`rounded-xl border p-4 ${tones[tone]}`}>
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-2">
         <p className="text-xs font-medium leading-tight text-zinc-500 dark:text-zinc-400">
           {label}
@@ -179,29 +183,61 @@ export function StatTile({
         {typeof value === "number" ? value.toLocaleString("en-IN") : value}
       </p>
       {hint && <p className="mt-0.5 text-[11px] text-zinc-400">{hint}</p>}
-    </div>
+      {href && (
+        <p className="mt-1.5 text-[11px] font-medium text-teal-600 dark:text-teal-400">
+          View report →
+        </p>
+      )}
+    </>
   );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className={`block rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500 ${tones[tone]}`}
+      >
+        {body}
+      </Link>
+    );
+  }
+  return <div className={`rounded-xl border p-4 ${tones[tone]}`}>{body}</div>;
 }
 
 /* ── Legend ────────────────────────────────────────────────────── */
 export function Legend({
   items,
 }: {
-  items: { label: string; value?: number; className: string }[];
+  items: { label: string; value?: number; className: string; href?: string }[];
 }) {
   return (
     <ul className="space-y-1.5">
-      {items.map((it) => (
-        <li key={it.label} className="flex items-center gap-2 text-xs">
-          <span className={`inline-block h-2.5 w-2.5 rounded-sm ${it.className}`} />
-          <span className="text-zinc-600 dark:text-zinc-300">{it.label}</span>
-          {it.value !== undefined && (
-            <span className="ml-auto font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
-              {it.value.toLocaleString("en-IN")}
-            </span>
-          )}
-        </li>
-      ))}
+      {items.map((it) => {
+        const row = (
+          <>
+            <span className={`inline-block h-2.5 w-2.5 rounded-sm ${it.className}`} />
+            <span className="text-zinc-600 dark:text-zinc-300">{it.label}</span>
+            {it.value !== undefined && (
+              <span className="ml-auto font-semibold tabular-nums text-zinc-500 dark:text-zinc-400">
+                {it.value.toLocaleString("en-IN")}
+              </span>
+            )}
+          </>
+        );
+        return (
+          <li key={it.label} className="text-xs">
+            {it.href ? (
+              <Link
+                href={it.href}
+                className="-mx-1.5 flex items-center gap-2 rounded px-1.5 py-0.5 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+              >
+                {row}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">{row}</div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

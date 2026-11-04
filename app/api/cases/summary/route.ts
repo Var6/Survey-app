@@ -1,14 +1,17 @@
 import { json, handleError, requireRoles } from "@/lib/api";
 import { casesCol } from "@/lib/models";
 import { MODULE_LIST } from "@/lib/cases/modules";
+import { SEGMENTS, segmentFilter } from "@/lib/cases/segments";
+import { istToday } from "@/lib/time";
 
 export const runtime = "nodejs";
 
+/** Case-module cards. Same definitions as the lists they open (open = not closed). */
 export async function GET() {
   try {
     await requireRoles("director", "mis", "programme_manager");
     const col = await casesCol();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = istToday();
 
     const agg = await col
       .aggregate([
@@ -41,6 +44,11 @@ export async function GET() {
                 ],
               },
             },
+            pendingReview: {
+              $sum: {
+                $cond: [{ $in: ["$workflowStatus", ["closure_requested", "under_review"]] }, 1, 0],
+              },
+            },
           },
         },
       ])
@@ -59,6 +67,7 @@ export async function GET() {
         open: (a?.open as number) || 0,
         urgent: (a?.urgent as number) || 0,
         overdue: (a?.overdue as number) || 0,
+        pendingReview: (a?.pendingReview as number) || 0,
       };
     });
     const totals = summary.reduce(
@@ -66,10 +75,20 @@ export async function GET() {
         open: t.open + s.open,
         urgent: t.urgent + s.urgent,
         overdue: t.overdue + s.overdue,
+        pendingReview: t.pendingReview + s.pendingReview,
       }),
-      { open: 0, urgent: 0, overdue: 0 }
+      { open: 0, urgent: 0, overdue: 0, pendingReview: 0 }
     );
-    return json({ summary, totals, at: new Date().toISOString() });
+
+    const segments = await Promise.all(
+      SEGMENTS.map(async (s) => ({
+        key: s.key,
+        module: s.module,
+        label: s.label,
+        open: await col.countDocuments({ $and: [segmentFilter(s.key), { closed: false }] }),
+      }))
+    );
+    return json({ summary, totals, segments, at: new Date().toISOString() });
   } catch (e) {
     return handleError(e);
   }

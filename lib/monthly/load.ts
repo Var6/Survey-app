@@ -6,6 +6,7 @@ import {
   type UserDoc,
 } from "@/lib/models";
 import { defaultReportMonth, monthKey } from "./month";
+import { istParts } from "@/lib/time";
 
 /* Server-side readers for the monthly report pages. Imports the database, so
    never pull this into a client component — use lib/monthly/month.ts there. */
@@ -23,7 +24,9 @@ function monthRange(key: string) {
  */
 export async function suggestOpenMonth(userId: ObjectId): Promise<string> {
   const now = new Date();
-  const current = monthKey(now);
+  // The current month on the India calendar, to agree with defaultReportMonth.
+  const ist = istParts(now);
+  const current = `${ist.year}-${String(ist.month).padStart(2, "0")}`;
   const candidates = [...new Set([defaultReportMonth(now), current])];
   const col = await monthlyReportsCol();
 

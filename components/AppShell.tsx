@@ -8,6 +8,7 @@ import ThemeToggle from "./ThemeToggle";
 import LogoutButton from "./LogoutButton";
 import { Icon, IconName } from "./icons";
 import { PageHeaderContext, type PageHeaderInfo } from "./PageHeader";
+import NotificationBell from "./NotificationBell";
 
 export interface ShellNavItem {
   href: string;
@@ -180,6 +181,7 @@ export default function AppShell({
   avatarUrl,
   homeHref,
   nav,
+  notificationsArea,
   children,
 }: {
   name: string;
@@ -187,6 +189,8 @@ export default function AppShell({
   avatarUrl?: string | null;
   homeHref: string;
   nav: ShellNavGroup[];
+  /** Area prefix ("/pm") — shows the notification bell when set. */
+  notificationsArea?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -221,10 +225,10 @@ export default function AppShell({
 
   return (
     <PageHeaderContext.Provider value={headerCtx}>
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen bg-zinc-50 dark:bg-black print:min-h-0 print:bg-white">
       {/* Desktop sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 dark:border-zinc-800 dark:bg-zinc-950 lg:flex ${
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-zinc-200 bg-white transition-[width] duration-200 dark:border-zinc-800 dark:bg-zinc-950 lg:flex print:!hidden ${
           collapsed ? "w-16" : "w-64"
         }`}
       >
@@ -234,7 +238,7 @@ export default function AppShell({
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-black/80 lg:hidden">
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-zinc-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-black/80 lg:hidden print:!hidden">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setOpen(true)}
@@ -246,12 +250,15 @@ export default function AppShell({
           <Image src="/logo-mark.png" alt="Janman" width={26} height={26} className="rounded-md" />
           <span className="text-sm font-bold text-zinc-900 dark:text-zinc-50">{roleLabel}</span>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          {notificationsArea && <NotificationBell area={notificationsArea} />}
+          <ThemeToggle />
+        </div>
       </header>
 
       {/* Mobile drawer */}
       {open && (
-        <div className="fixed inset-0 z-40 lg:hidden">
+        <div className="fixed inset-0 z-40 lg:hidden print:!hidden">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
           <aside className="absolute inset-y-0 left-0 flex w-72 max-w-[85%] flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
             <div className="relative">
@@ -271,11 +278,11 @@ export default function AppShell({
       )}
 
       {/* Main */}
-      <main className={collapsed ? "lg:pl-16" : "lg:pl-64"}>
+      <main className={`${collapsed ? "lg:pl-16" : "lg:pl-64"} print:!pl-0`}>
         {/* Desktop top band — its bottom border runs at the same height as the
             brand divider, so the line continues seamlessly across the page.
             Shows the current page's title + subtitle, published by PageTitle. */}
-        <div className="sticky top-0 z-10 hidden h-16 items-center justify-between gap-4 border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-zinc-950 lg:flex">
+        <div className="sticky top-0 z-10 hidden h-16 items-center justify-between gap-4 border-b border-zinc-200 bg-white px-6 dark:border-zinc-800 dark:bg-zinc-950 lg:flex print:!hidden">
           <div className="min-w-0 leading-tight">
             <p className="truncate text-sm font-bold text-zinc-900 dark:text-zinc-50">
               {header.title || roleLabel}
@@ -284,16 +291,19 @@ export default function AppShell({
               <p className="truncate text-xs text-zinc-400">{header.subtitle}</p>
             )}
           </div>
-          <span className="shrink-0 text-xs text-zinc-400">
-            {roleLabel} ·{" "}
-            {new Date().toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })}
-          </span>
+          <div className="flex shrink-0 items-center gap-3">
+            {notificationsArea && <NotificationBell area={notificationsArea} />}
+            <span className="text-xs text-zinc-400">
+              {roleLabel} ·{" "}
+              {new Date().toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+          </div>
         </div>
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 print:max-w-none print:p-0">{children}</div>
       </main>
     </div>
     </PageHeaderContext.Provider>

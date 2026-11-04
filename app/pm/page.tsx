@@ -20,7 +20,7 @@ export default function PmHome() {
       />
       {/* Live programme metrics (auto-refreshing charts). The weekly command
           dashboard lives inside the weekly report itself. */}
-      <ProgrammeDashboard />
+      <ProgrammeDashboard basePath="/pm" />
     </div>
   );
 }

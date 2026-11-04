@@ -122,6 +122,24 @@ export const Icon = {
       <path d="M12 11v7M9 15h6" />
     </svg>
   ),
+  bell: (p: P) => (
+    <svg {...base(p)}>
+      <path d="M6 9a6 6 0 1 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9Z" />
+      <path d="M10 20a2 2 0 0 0 4 0" />
+    </svg>
+  ),
+  camp: (p: P) => (
+    <svg {...base(p)}>
+      <path d="M3 20 12 5l9 15Z" />
+      <path d="M12 5v15M8 20l4-7 4 7" />
+    </svg>
+  ),
+  check: (p: P) => (
+    <svg {...base(p)}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.5 2.8 2.8L16 9.5" />
+    </svg>
+  ),
   menu: (p: P) => (
     <svg {...base(p)}>
       <path d="M4 6h16M4 12h16M4 18h16" />

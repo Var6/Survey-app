@@ -44,7 +44,7 @@ export default async function DirectorHome() {
         </p>
       </div>
 
-      <ProgrammeDashboard />
+      <ProgrammeDashboard basePath="/director" />
 
       {ops && (
         <div>
