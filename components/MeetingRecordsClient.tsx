@@ -16,11 +16,16 @@ interface Rec {
   communityName: string;
   typeKey: string;
   typeLabel: string;
+  kind: "meeting" | "camp";
   topic: string;
   attendanceLinks: string[];
-  totalParticipants: number;
+  totalParticipants: number | null;
   photoLinks: string[];
   remarks: string | null;
+  stakeholderType: string | null;
+  stakeholderTypeLabel: string | null;
+  stakeholderName: string | null;
+  participantNotes: string | null;
   cmName: string | null;
   source: "app" | "import";
   submittedAt: string;
@@ -31,6 +36,7 @@ interface Summary {
   participants: number;
   missingEvidence: number;
   byType: { key: string; label: string; meetings: number; participants: number }[];
+  byStakeholder?: { key: string; label: string; count: number }[];
 }
 interface ListResp {
   records: Rec[];
@@ -49,11 +55,63 @@ interface FormState {
   attendanceLinks: string;
   photoLinks: string;
   remarks: string;
+  stakeholderType: string;
+  stakeholderName: string;
+  participantNotes: string;
 }
 const EMPTY: FormState = {
   meetingDate: "", settlementCode: "", typeKey: "", topic: "", totalParticipants: "",
-  attendanceLinks: "", photoLinks: "", remarks: "",
+  attendanceLinks: "", photoLinks: "", remarks: "", stakeholderType: "", stakeholderName: "", participantNotes: "",
 };
+
+/** The two forms share one screen; only the wording and a few fields differ. */
+const CFG = {
+  meeting: {
+    title: "Meeting reports",
+    subtitle: "Youth and women's community meetings",
+    noun: "meeting",
+    nounPlural: "meetings",
+    typeList: "meeting_form_type",
+    typeLabel: "Type of meeting",
+    typeLabelHi: "बैठक का प्रकार",
+    dateLabel: "Meeting date",
+    dateLabelHi: "बैठक की तारीख़",
+    topicLabel: "Topic discussed",
+    topicLabelHi: "चर्चा का विषय",
+    attLabel: "Attendance sheet",
+    attLabelHi: "उपस्थिति शीट",
+    addBtn: "Add meeting report",
+    addBtnHi: "बैठक रिपोर्ट भरें · Add report",
+    formTitle: "Add meeting report",
+    formTitleHi: "बैठक रिपोर्ट · Community meeting",
+    emptyCm: "अभी कोई रिपोर्ट नहीं · You have not filed any meeting report yet.",
+    done: "रिपोर्ट जमा हो गई · Report submitted. MIS, PM and Director can see it.",
+    exportKind: "meeting",
+  },
+  camp: {
+    title: "Camp reports",
+    subtitle: "Community camps run with Government, NGO and other partners",
+    noun: "camp",
+    nounPlural: "camps",
+    typeList: "camp_form_type",
+    typeLabel: "Type of camp",
+    typeLabelHi: "कैंप का प्रकार",
+    dateLabel: "Date of camp",
+    dateLabelHi: "कैंप की तारीख़",
+    topicLabel: "Support given at the camp",
+    topicLabelHi: "कैंप में क्या सहायता दी गई",
+    attLabel: "Attendance photo",
+    attLabelHi: "उपस्थिति की फ़ोटो",
+    addBtn: "Add camp report",
+    addBtnHi: "कैंप रिपोर्ट भरें · Add report",
+    formTitle: "Add camp report",
+    formTitleHi: "कैंप रिपोर्ट · Community camp",
+    emptyCm: "अभी कोई रिपोर्ट नहीं · You have not filed any camp report yet.",
+    done: "रिपोर्ट जमा हो गई · Report submitted. MIS, PM and Director can see it.",
+    exportKind: "camp",
+  },
+} as const;
+type Kind = keyof typeof CFG;
 const todayStr = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10);
 
 /**
@@ -62,12 +120,15 @@ const todayStr = () => new Date(Date.now() + 5.5 * 3600_000).toISOString().slice
  */
 export default function MeetingRecordsClient({
   mode,
+  kind = "meeting",
   canDelete = false,
 }: {
   mode: "cm" | "staff";
+  kind?: Kind;
   canDelete?: boolean;
 }) {
   const staff = mode === "staff";
+  const cfg = CFG[kind];
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -86,19 +147,22 @@ export default function MeetingRecordsClient({
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [types, setTypes] = useState<{ key: string; label: string }[]>([]);
+  const [stakeTypes, setStakeTypes] = useState<{ key: string; label: string }[]>([]);
+  const [stake, setStake] = useState("");
   const [cms, setCms] = useState<{ id: string; name: string }[]>([]);
   const [open, setOpen] = useState<Rec | null>(null);
   const [form, setForm] = useState<{ id?: string; values: FormState } | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
 
   const loadTypes = useCallback(
-    () => apiFetch<{ items: { key: string; label: string }[] }>("/api/lookups?list=meeting_form_type").then((r) => setTypes(r.items)).catch(() => {}),
-    []
+    () => apiFetch<{ items: { key: string; label: string }[] }>(`/api/lookups?list=${cfg.typeList}`).then((r) => setTypes(r.items)).catch(() => {}),
+    [cfg.typeList]
   );
   useEffect(() => {
     loadTypes();
+    if (kind === "camp") apiFetch<{ items: { key: string; label: string }[] }>("/api/lookups?list=camp_stakeholder_type").then((r) => setStakeTypes(r.items)).catch(() => {});
     if (staff) apiFetch<{ cms: { id: string; name: string }[] }>("/api/cms").then((r) => setCms(r.cms)).catch(() => {});
-  }, [loadTypes, staff]);
+  }, [loadTypes, staff, kind]);
 
   useEffect(() => {
     const t = setTimeout(() => { setQ(qText.trim()); setPage(1); }, 350);
@@ -106,7 +170,8 @@ export default function MeetingRecordsClient({
   }, [qText]);
 
   const filterQuery = useCallback(() => {
-    const p = new URLSearchParams();
+    const p = new URLSearchParams({ kind });
+    if (stake) p.set("stakeholder", stake);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
     if (settlement) p.set("settlement", settlement);
@@ -115,9 +180,9 @@ export default function MeetingRecordsClient({
     if (evidence) p.set("evidence", "missing");
     if (q) p.set("q", q);
     return p.toString();
-  }, [from, to, settlement, type, cm, evidence, q]);
+  }, [kind, stake, from, to, settlement, type, cm, evidence, q]);
 
-  useEffect(() => { setPage(1); }, [from, to, settlement, type, cm, evidence]);
+  useEffect(() => { setPage(1); }, [from, to, settlement, type, cm, evidence, stake]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,23 +208,23 @@ export default function MeetingRecordsClient({
     if (sp.get("open")) router.replace(pathname, { scroll: false });
   };
 
-  const hasFilters = !!(from || to || settlement || type || cm || evidence || q);
-  const clear = () => { setFrom(""); setTo(""); setSettlement(""); setType(""); setCm(""); setEvidence(false); setQText(""); setQ(""); };
+  const hasFilters = !!(from || to || settlement || type || cm || evidence || q || stake);
+  const clear = () => { setFrom(""); setTo(""); setSettlement(""); setType(""); setCm(""); setEvidence(false); setQText(""); setQ(""); setStake(""); };
   const s = data?.summary;
 
   return (
     <div className="space-y-4">
-      <PageHeaderBroadcast title="Meeting reports" subtitle="Youth and women's community meetings" />
+      <PageHeaderBroadcast title={cfg.title} subtitle={cfg.subtitle} />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-zinc-500">
-          {staff ? "Every meeting report from the field — open one to correct it." : "आपकी भरी हुई बैठकें · Meetings you have filed."}
+          {staff ? `Every ${cfg.noun} report from the field — open one to correct it.` : `आपकी भरी हुई रिपोर्टें · The ${cfg.nounPlural} you have filed.`}
         </p>
         <button
           onClick={() => setForm({ values: { ...EMPTY, meetingDate: todayStr(), typeKey: types[0]?.key ?? "" } })}
           className="rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-800"
         >
-          + {staff ? "Add meeting report" : "बैठक रिपोर्ट भरें · Add report"}
+          + {staff ? cfg.addBtn : cfg.addBtnHi}
         </button>
       </div>
 
@@ -175,12 +240,20 @@ export default function MeetingRecordsClient({
             {settlements.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
           </select>
         </Field>
-        <Field label="Type of meeting">
+        <Field label={cfg.typeLabel}>
           <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}>
             <option value="">All</option>
             {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
           </select>
         </Field>
+        {kind === "camp" && (
+          <Field label="Supported by">
+            <select className={inputCls} value={stake} onChange={(e) => setStake(e.target.value)}>
+              <option value="">All</option>
+              {stakeTypes.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+            </select>
+          </Field>
+        )}
         {staff && (
           <Field label="Filed by">
             <select className={inputCls} value={cm} onChange={(e) => setCm(e.target.value)}>
@@ -204,11 +277,16 @@ export default function MeetingRecordsClient({
       {/* Summary of the filtered set */}
       {s && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-lg bg-teal-50 px-3 py-1.5 font-semibold text-teal-800 dark:bg-teal-950/40 dark:text-teal-300">{s.meetings.toLocaleString("en-IN")} meetings</span>
+          <span className="rounded-lg bg-teal-50 px-3 py-1.5 font-semibold text-teal-800 dark:bg-teal-950/40 dark:text-teal-300">{s.meetings.toLocaleString("en-IN")} {s.meetings === 1 ? cfg.noun : cfg.nounPlural}</span>
           <span className="rounded-lg bg-zinc-100 px-3 py-1.5 font-semibold text-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">{s.participants.toLocaleString("en-IN")} participants</span>
           {s.byType.map((t) => (
             <button key={t.key} onClick={() => setType(type === t.key ? "" : t.key)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${type === t.key ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-900 dark:text-zinc-300"}`}>
               {t.label} <span className="opacity-60">{t.meetings}</span>
+            </button>
+          ))}
+          {kind === "camp" && s.byStakeholder?.map((t) => (
+            <button key={t.key} onClick={() => setStake(stake === t.key ? "" : t.key)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${stake === t.key ? "bg-indigo-700 text-white" : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300"}`}>
+              {t.label} <span className="opacity-60">{t.count}</span>
             </button>
           ))}
           {s.missingEvidence > 0 && (
@@ -231,7 +309,7 @@ export default function MeetingRecordsClient({
         <p className="text-sm text-zinc-400">Loading…</p>
       ) : data && data.records.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 py-12 text-center text-sm text-zinc-500 dark:border-zinc-700">
-          {hasFilters ? "No meeting reports match these filters." : staff ? "No meeting reports yet." : "अभी कोई रिपोर्ट नहीं · You have not filed any meeting report yet."}
+          {hasFilters ? `No ${cfg.noun} reports match these filters.` : staff ? `No ${cfg.noun} reports yet.` : cfg.emptyCm}
         </div>
       ) : (
         <ul className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
@@ -242,8 +320,11 @@ export default function MeetingRecordsClient({
                   <span className="font-semibold text-zinc-900 dark:text-zinc-50">{r.communityName}</span>
                   <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{r.typeLabel}</span>
                   <span className="text-xs text-zinc-400">{formatDate(r.meetingDate)}</span>
-                  <span className="ml-auto text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">{r.totalParticipants} <span className="text-xs font-normal text-zinc-400">participants</span></span>
+                  <span className="ml-auto text-sm font-semibold tabular-nums text-zinc-700 dark:text-zinc-200">{r.totalParticipants ?? "—"} <span className="text-xs font-normal text-zinc-400">participants</span></span>
                 </div>
+                {r.kind === "camp" && r.stakeholderTypeLabel && (
+                  <p className="mt-1 text-xs font-medium text-indigo-700 dark:text-indigo-300">{r.stakeholderTypeLabel}: {r.stakeholderName}</p>
+                )}
                 <p className="mt-1.5 line-clamp-2 whitespace-pre-line text-sm text-zinc-600 dark:text-zinc-300">{r.topic}</p>
                 <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-400">
                   {staff && <span>{r.cmName ?? (r.source === "import" ? "Imported from Google Form" : "—")}</span>}
@@ -267,17 +348,23 @@ export default function MeetingRecordsClient({
           onEdit={() => {
             setForm({ id: open.id, values: {
               meetingDate: open.meetingDate, settlementCode: open.settlementCode ?? "", typeKey: open.typeKey, topic: open.topic,
-              totalParticipants: String(open.totalParticipants), attendanceLinks: open.attendanceLinks.join("\n"),
+              totalParticipants: open.totalParticipants == null ? "" : String(open.totalParticipants), attendanceLinks: open.attendanceLinks.join("\n"),
               photoLinks: open.photoLinks.join("\n"), remarks: open.remarks ?? "",
+              stakeholderType: open.stakeholderType ?? "", stakeholderName: open.stakeholderName ?? "", participantNotes: open.participantNotes ?? "",
             } });
             closeDetail();
           }}
-          onDeleted={() => { closeDetail(); setFlash("Meeting report deleted."); load(); }}
+          onDeleted={() => { closeDetail(); setFlash("Report deleted."); load(); }}
+          cfg={cfg}
         />
       )}
 
       {form && (
         <RecordForm
+          kind={kind}
+          cfg={cfg}
+          stakeTypes={stakeTypes}
+          onStakeTypesChanged={() => apiFetch<{ items: { key: string; label: string }[] }>("/api/lookups?list=camp_stakeholder_type").then((r) => setStakeTypes(r.items)).catch(() => {})}
           id={form.id}
           initial={form.values}
           staff={staff}
@@ -287,7 +374,7 @@ export default function MeetingRecordsClient({
           onClose={() => setForm(null)}
           onSaved={(rec) => {
             setForm(null);
-            setFlash(form.id ? "Saved." : staff ? "Meeting report added." : "रिपोर्ट जमा हो गई · Report submitted. MIS, PM and Director can see it.");
+            setFlash(form.id ? "Saved." : staff ? "Report added." : cfg.done);
             if (form.id) setOpen(rec);
             load();
           }}
@@ -318,10 +405,10 @@ function LinkList({ label, links }: { label: string; links: string[] }) {
   );
 }
 
-function Detail({ r, staff, canDelete, onClose, onEdit, onDeleted }: { r: Rec; staff: boolean; canDelete: boolean; onClose: () => void; onEdit: () => void; onDeleted: () => void }) {
+function Detail({ r, staff, canDelete, cfg, onClose, onEdit, onDeleted }: { r: Rec; staff: boolean; canDelete: boolean; cfg: (typeof CFG)[Kind]; onClose: () => void; onEdit: () => void; onDeleted: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   const del = async () => {
-    if (!window.confirm("Delete this meeting report permanently?")) return;
+    if (!window.confirm("Delete this report permanently?")) return;
     try { await apiFetch(`/api/meeting-records/${r.id}`, { method: "DELETE" }); onDeleted(); } catch (e) { setErr((e as Error).message); }
   };
   return (
@@ -332,15 +419,19 @@ function Detail({ r, staff, canDelete, onClose, onEdit, onDeleted }: { r: Rec; s
           <div>
             <p className="text-xs text-zinc-400">{formatDate(r.meetingDate)}</p>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{r.communityName}</h2>
-            <p className="text-sm text-zinc-500">{r.typeLabel} · {r.totalParticipants} participants</p>
+            <p className="text-sm text-zinc-500">{r.typeLabel} · {r.totalParticipants ?? "—"} participants</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900" aria-label="Close"><Icon.close /></button>
         </div>
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5 text-sm">
           {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700 dark:bg-red-950/30 dark:text-red-300">{err}</p>}
-          <div><p className="text-xs font-medium text-zinc-400">Topic discussed</p><p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-100">{r.topic}</p></div>
+          {r.kind === "camp" && (
+            <div><p className="text-xs font-medium text-zinc-400">Supported by</p><p className="font-medium text-indigo-700 dark:text-indigo-300">{r.stakeholderTypeLabel ?? "—"}{r.stakeholderName ? ` · ${r.stakeholderName}` : ""}</p></div>
+          )}
+          <div><p className="text-xs font-medium text-zinc-400">{cfg.topicLabel}</p><p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-100">{r.topic}</p></div>
+          {r.participantNotes && <div><p className="text-xs font-medium text-zinc-400">Doctors / members who took part</p><p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-100">{r.participantNotes}</p></div>}
           {r.remarks && <div><p className="text-xs font-medium text-zinc-400">Remarks</p><p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-100">{r.remarks}</p></div>}
-          <LinkList label="Attendance sheet" links={r.attendanceLinks} />
+          <LinkList label={cfg.attLabel} links={r.attendanceLinks} />
           <LinkList label="Group photo" links={r.photoLinks} />
           <p className="text-xs text-zinc-400">Filed {formatDate(r.submittedAt)} by {r.cmName ?? (r.source === "import" ? "Google Form (imported)" : "—")}</p>
           {staff && (
@@ -361,7 +452,8 @@ function Detail({ r, staff, canDelete, onClose, onEdit, onDeleted }: { r: Rec; s
   );
 }
 
-function RecordForm({ id, initial, staff, types, settlements, onTypesChanged, onClose, onSaved }: {
+function RecordForm({ kind, cfg, stakeTypes, onStakeTypesChanged, id, initial, staff, types, settlements, onTypesChanged, onClose, onSaved }: {
+  kind: Kind; cfg: (typeof CFG)[Kind]; stakeTypes: { key: string; label: string }[]; onStakeTypesChanged: () => void;
   id?: string; initial: FormState; staff: boolean; types: { key: string; label: string }[];
   settlements: { code: string; label: string }[]; onTypesChanged: () => void; onClose: () => void; onSaved: (r: Rec) => void;
 }) {
@@ -372,19 +464,28 @@ function RecordForm({ id, initial, staff, types, settlements, onTypesChanged, on
   const hi = !staff;
 
   const addType = async () => {
-    const label = window.prompt("Name of the new meeting type:");
+    const label = window.prompt(`Name of the new ${cfg.noun} type:`);
     if (!label?.trim()) return;
     try {
-      const r = await apiFetch<{ item: { key: string } }>("/api/lookups", { method: "POST", body: JSON.stringify({ list: "meeting_form_type", label }) });
+      const r = await apiFetch<{ item: { key: string } }>("/api/lookups", { method: "POST", body: JSON.stringify({ list: cfg.typeList, label }) });
       onTypesChanged();
       set("typeKey", r.item.key);
+    } catch (e) { setErr((e as Error).message); }
+  };
+  const addStake = async () => {
+    const label = window.prompt("Name of the new kind of supporter (e.g. Corporate):");
+    if (!label?.trim()) return;
+    try {
+      const r = await apiFetch<{ item: { key: string } }>("/api/lookups", { method: "POST", body: JSON.stringify({ list: "camp_stakeholder_type", label }) });
+      onStakeTypesChanged();
+      set("stakeholderType", r.item.key);
     } catch (e) { setErr((e as Error).message); }
   };
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true); setErr(null);
     try {
-      const r = await apiFetch<{ record: Rec }>(id ? `/api/meeting-records/${id}` : "/api/meeting-records", { method: id ? "PATCH" : "POST", body: JSON.stringify(v) });
+      const r = await apiFetch<{ record: Rec }>(id ? `/api/meeting-records/${id}` : "/api/meeting-records", { method: id ? "PATCH" : "POST", body: JSON.stringify({ ...v, kind }) });
       onSaved(r.record);
     } catch (e2) { setErr((e2 as Error).message); } finally { setBusy(false); }
   };
@@ -394,13 +495,13 @@ function RecordForm({ id, initial, staff, types, settlements, onTypesChanged, on
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <form onSubmit={submit} className="absolute inset-y-0 right-0 flex w-full max-w-xl flex-col bg-white shadow-xl dark:bg-zinc-950">
         <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{id ? "Edit meeting report" : hi ? "बैठक रिपोर्ट · Community meeting" : "Add meeting report"}</h2>
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">{id ? `Edit ${cfg.noun} report` : hi ? cfg.formTitleHi : cfg.formTitle}</h2>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900" aria-label="Close"><Icon.close /></button>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
           {err && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{err}</p>}
           <div className="grid grid-cols-2 gap-3">
-            <Field label={hi ? "बैठक की तारीख़ · Meeting date *" : "Meeting date *"}><input type="date" className={inputCls} value={v.meetingDate} max={todayStr()} onChange={(e) => set("meetingDate", e.target.value)} required /></Field>
+            <Field label={hi ? `${cfg.dateLabelHi} · ${cfg.dateLabel} *` : `${cfg.dateLabel} *`}><input type="date" className={inputCls} value={v.meetingDate} max={todayStr()} onChange={(e) => set("meetingDate", e.target.value)} required /></Field>
             <Field label={hi ? "कुल प्रतिभागी · Total participants *" : "Total participants *"}><input type="number" min={0} className={inputCls} value={v.totalParticipants} onChange={(e) => set("totalParticipants", e.target.value)} required /></Field>
           </div>
           <Field label={hi ? "समुदाय का नाम · Name of community *" : "Name of community *"}>
@@ -410,7 +511,7 @@ function RecordForm({ id, initial, staff, types, settlements, onTypesChanged, on
             </select>
           </Field>
           <div className="grid grid-cols-[1fr_auto] items-end gap-2">
-            <Field label={hi ? "बैठक का प्रकार · Type of meeting *" : "Type of meeting *"}>
+            <Field label={hi ? `${cfg.typeLabelHi} · ${cfg.typeLabel} *` : `${cfg.typeLabel} *`}>
               <select className={inputCls} value={v.typeKey} onChange={(e) => set("typeKey", e.target.value)} required>
                 <option value="">Choose…</option>
                 {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
@@ -418,14 +519,35 @@ function RecordForm({ id, initial, staff, types, settlements, onTypesChanged, on
             </Field>
             {staff && <button type="button" onClick={addType} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900">+ Type</button>}
           </div>
-          <Field label={hi ? "चर्चा का विषय · Topic discussed *" : "Topic discussed *"}><textarea className={inputCls} rows={6} value={v.topic} onChange={(e) => set("topic", e.target.value)} required maxLength={8000} /></Field>
-          <Field label={hi ? "उपस्थिति शीट का Drive लिंक · Attendance sheet link(s)" : "Attendance sheet link(s)"}>
+          {kind === "camp" && (
+            <>
+              <div className="grid grid-cols-[1fr_auto] items-end gap-2">
+                <Field label={hi ? "सहायता किसने दी · Supported by *" : "Supported by *"}>
+                  <select className={inputCls} value={v.stakeholderType} onChange={(e) => set("stakeholderType", e.target.value)} required>
+                    <option value="">Choose…</option>
+                    {stakeTypes.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  </select>
+                </Field>
+                {staff && <button type="button" onClick={addStake} className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900">+ Type</button>}
+              </div>
+              <Field label={hi ? "संस्था / व्यक्ति का नाम · Name of the organisation or person *" : "Name of the organisation or person *"}>
+                <input className={inputCls} value={v.stakeholderName} onChange={(e) => set("stakeholderName", e.target.value)} required maxLength={200} placeholder="e.g. UPHC Madhopara, Dr. Nagma" />
+              </Field>
+            </>
+          )}
+          <Field label={hi ? `${cfg.topicLabelHi} · ${cfg.topicLabel} *` : `${cfg.topicLabel} *`}><textarea className={inputCls} rows={6} value={v.topic} onChange={(e) => set("topic", e.target.value)} required maxLength={8000} /></Field>
+          <Field label={hi ? `${cfg.attLabelHi} का Drive लिंक · ${cfg.attLabel} link(s)` : `${cfg.attLabel} link(s)`}>
             <textarea className={inputCls} rows={2} value={v.attendanceLinks} onChange={(e) => set("attendanceLinks", e.target.value)} placeholder="https://drive.google.com/…  (one per line)" />
           </Field>
           <Field label={hi ? "ग्रुप फ़ोटो का Drive लिंक · Group photo link(s)" : "Group photo link(s)"}>
             <textarea className={inputCls} rows={2} value={v.photoLinks} onChange={(e) => set("photoLinks", e.target.value)} placeholder="https://drive.google.com/…  (one per line)" />
           </Field>
           <p className="-mt-2 text-xs text-zinc-400">{hi ? "Drive में फ़ाइल खोलकर ‘Share → Anyone with the link’ करें, फिर लिंक यहाँ चिपकाएँ। · " : ""}Upload to Google Drive, share “Anyone with the link”, paste the link here. Only Google Drive / Photos links are accepted.</p>
+          {kind === "camp" && (
+            <Field label={hi ? "शामिल डॉक्टर / सदस्यों के नाम · Doctors / members who took part" : "Doctors / members who took part (names)"}>
+              <textarea className={inputCls} rows={3} value={v.participantNotes} onChange={(e) => set("participantNotes", e.target.value)} maxLength={2000} />
+            </Field>
+          )}
           <Field label={hi ? "टिप्पणी · Remarks" : "Remarks"}><textarea className={inputCls} rows={3} value={v.remarks} onChange={(e) => set("remarks", e.target.value)} maxLength={4000} /></Field>
         </div>
         <div className="flex gap-2 border-t border-zinc-200 px-5 py-3 dark:border-zinc-800">

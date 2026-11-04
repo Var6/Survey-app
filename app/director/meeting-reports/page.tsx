@@ -6,7 +6,7 @@ export const metadata = { title: "Meeting reports · Director" };
 export default function MeetingReportsPage() {
   return (
     <Suspense fallback={<p className="text-sm text-zinc-400">Loading…</p>}>
-      <MeetingRecordsClient mode="staff" canDelete={true} />
+      <MeetingRecordsClient mode="staff" kind="meeting" canDelete={true} />
     </Suspense>
   );
 }

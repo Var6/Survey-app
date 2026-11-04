@@ -42,7 +42,8 @@ const NAV: ShellNavGroup[] = [
     label: "Field activity",
     items: [
       { href: "/director/cases/all", label: "All cases", icon: "check", exact: true },
-      { href: "/director/camps", label: "Camps", icon: "camp" },
+      { href: "/director/camp-reports", label: "Camp reports", icon: "camp" },
+      { href: "/director/camps", label: "Planned camps", icon: "camp" },
       { href: "/director/meeting-reports", label: "Meeting reports", icon: "survey" },
       { href: "/director/meetings", label: "Planned meetings", icon: "users" },
       { href: "/director/notifications", label: "Notifications", icon: "bell" },

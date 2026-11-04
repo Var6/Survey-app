@@ -147,7 +147,7 @@ export default function CampsClient({ canManage }: { canManage: boolean }) {
 
   return (
     <div className="space-y-4">
-      <PageHeaderBroadcast title="Camps" subtitle="Health, documents and awareness camps" />
+      <PageHeaderBroadcast title="Planned camps" subtitle="Camps scheduled by MIS and the Programme Manager" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex rounded-lg border border-zinc-200 p-0.5 dark:border-zinc-800">
           {TABS.map((t) => (

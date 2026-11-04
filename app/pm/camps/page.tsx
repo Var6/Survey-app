@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import CampsClient from "@/components/CampsClient";
 
-export const metadata = { title: "Camps · Programme Manager" };
+export const metadata = { title: "Planned camps · Programme Manager" };
 
 export default function CampsPage() {
   return (

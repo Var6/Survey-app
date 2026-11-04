@@ -4,7 +4,7 @@ import type { LookupDoc } from "@/lib/models";
 
 export const runtime = "nodejs";
 
-const LISTS: LookupDoc["list"][] = ["camp_type", "meeting_type", "meeting_form_type"];
+const LISTS: LookupDoc["list"][] = ["camp_type", "meeting_type", "meeting_form_type", "camp_form_type", "camp_stakeholder_type"];
 const parseList = (v: unknown) => {
   if (!LISTS.includes(v as LookupDoc["list"])) throw new HttpError(400, "Unknown list");
   return v as LookupDoc["list"];

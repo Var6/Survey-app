@@ -23,6 +23,10 @@ const DEFAULTS: Record<LookupDoc["list"], string[]> = {
   ],
   // The three kinds on the Google Form the CMs used for meeting reports.
   meeting_form_type: ["Youth Boy's Meeting", "Youth Girl's Meeting", "Woman Meeting"],
+  // Camp form ("Community Camp, Urban Initiative Program"). The old sheet only
+  // shows "Health"; the rest are sensible starting points staff can edit.
+  camp_form_type: ["Health", "Documents / Entitlement", "Education", "Awareness", "Other"],
+  camp_stakeholder_type: ["Government", "NGO", "Private", "Community", "Other"],
 };
 
 export const slugify = (label: string) =>

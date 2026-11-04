@@ -33,7 +33,8 @@ const NAV: ShellNavGroup[] = [
     label: "Field activity",
     items: [
       { href: "/mis/cases/all", label: "All cases", icon: "check", exact: true },
-      { href: "/mis/camps", label: "Camps", icon: "camp" },
+      { href: "/mis/camp-reports", label: "Camp reports", icon: "camp" },
+      { href: "/mis/camps", label: "Planned camps", icon: "camp" },
       { href: "/mis/meeting-reports", label: "Meeting reports", icon: "survey" },
       { href: "/mis/meetings", label: "Planned meetings", icon: "users" },
       { href: "/mis/notifications", label: "Notifications", icon: "bell" },

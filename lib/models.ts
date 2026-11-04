@@ -419,6 +419,7 @@ export type NotificationCategory =
   | "meeting_updated"
   | "meeting_invited"
   | "meeting_report"
+  | "camp_report"
   | "report_reminder";
 
 export interface NotificationDoc {
@@ -428,7 +429,7 @@ export interface NotificationDoc {
   title: string;
   body: string;
   /** What the notification is about — the client builds the link for the viewer's role. */
-  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "monthly";
+  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "camp_record" | "monthly";
   relatedId?: string;
   /** Unique per recipient: a retried job can never notify twice. */
   dedupeKey: string;
@@ -454,7 +455,12 @@ export interface AuditDoc {
 /* ─── Configurable lists (camp types, meeting types) ────────── */
 export interface LookupDoc {
   _id?: ObjectId;
-  list: "camp_type" | "meeting_type" | "meeting_form_type";
+  list:
+    | "camp_type"
+    | "meeting_type"
+    | "meeting_form_type"
+    | "camp_form_type"
+    | "camp_stakeholder_type";
   key: string;
   label: string;
   active: boolean;
@@ -549,6 +555,13 @@ export interface MeetingDoc {
  */
 export interface MeetingRecordDoc {
   _id?: ObjectId;
+  /**
+   * Which form this record came from. The Camp form has the same shape as the
+   * Meeting form (date, community, type, text, Drive links, participants,
+   * remarks) plus the supporting organisation, so both live in this collection.
+   * Missing = "meeting" (every record created before camp reports existed).
+   */
+  kind?: "meeting" | "camp";
   /** YYYY-MM-DD, India time. */
   meetingDate: string;
   settlementCode?: string;
@@ -558,9 +571,16 @@ export interface MeetingRecordDoc {
   typeLabel: string;
   topic: string;
   attendanceLinks: string[];
-  totalParticipants: number;
+  /** Missing on a few imported camp rows where the form held names, not a count. */
+  totalParticipants?: number;
   photoLinks: string[];
   remarks?: string;
+  /** Camp reports: who supported the camp (Government, NGO …) and which organisation. */
+  stakeholderType?: string;
+  stakeholderTypeLabel?: string;
+  stakeholderName?: string;
+  /** Camp reports: names of doctors / members who took part, as free text. */
+  participantNotes?: string;
   /** Who filled it in. Missing on records imported from the old Google Form. */
   cmId?: ObjectId;
   cmName?: string;

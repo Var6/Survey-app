@@ -16,6 +16,7 @@ const CATEGORIES: NotificationCategory[] = [
   "meeting_updated",
   "meeting_invited",
   "meeting_report",
+  "camp_report",
   "report_reminder",
 ];
 

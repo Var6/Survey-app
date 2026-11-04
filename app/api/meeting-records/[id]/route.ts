@@ -6,7 +6,7 @@ import { getSettlement } from "@/lib/settlements";
 import { audit } from "@/lib/audit";
 import { clip, oidOr400 } from "@/lib/schedule";
 import { istToday } from "@/lib/time";
-import { checkMeetingDate, cleanTopic, parseLinks, parseParticipants } from "@/lib/meeting-records";
+import { TYPE_LIST, checkMeetingDate, cleanTopic, kindOf, parseLinks, parseParticipants } from "@/lib/meeting-records";
 
 export const runtime = "nodejs";
 
@@ -50,8 +50,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       changed.push("community");
     }
     if (body.typeKey !== undefined) {
-      const t = await findLookup("meeting_form_type", clip(body.typeKey, 80));
-      if (!t) throw new HttpError(400, "Choose the type of meeting");
+      const t = await findLookup(TYPE_LIST[kindOf(r.kind)], clip(body.typeKey, 80));
+      if (!t) throw new HttpError(400, "Choose the type");
       set.typeKey = t.key;
       set.typeLabel = t.label;
       changed.push("type");
@@ -76,6 +76,25 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       set.remarks = clip(body.remarks, 4000) || undefined;
       changed.push("remarks");
     }
+    if (kindOf(r.kind) === "camp") {
+      if (body.stakeholderType !== undefined) {
+        const st = await findLookup("camp_stakeholder_type", clip(body.stakeholderType, 80));
+        if (!st) throw new HttpError(400, "Choose who supported the camp");
+        set.stakeholderType = st.key;
+        set.stakeholderTypeLabel = st.label;
+        changed.push("supporter type");
+      }
+      if (body.stakeholderName !== undefined) {
+        const n = clip(body.stakeholderName, 200);
+        if (n.length < 2) throw new HttpError(400, "Write the name of the supporting organisation or person");
+        set.stakeholderName = n;
+        changed.push("supporter name");
+      }
+      if (body.participantNotes !== undefined) {
+        set.participantNotes = clip(body.participantNotes, 2000) || undefined;
+        changed.push("participant notes");
+      }
+    }
     if (!changed.length) throw new HttpError(400, "Nothing to change");
 
     const now = new Date();
@@ -87,7 +106,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     );
     await audit({
       actor: user,
-      action: "meeting_record.edited",
+      action: `${kindOf(r.kind)}_record.edited`,
       entityType: "meeting_record",
       entityId: String(r._id),
       ref: `${r.communityName} ${r.meetingDate}`,
@@ -107,11 +126,11 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     await (await meetingRecordsCol()).deleteOne({ _id: r._id });
     await audit({
       actor: user,
-      action: "meeting_record.deleted",
+      action: `${kindOf(r.kind)}_record.deleted`,
       entityType: "meeting_record",
       entityId: String(r._id),
       ref: `${r.communityName} ${r.meetingDate}`,
-      summary: "Meeting report deleted",
+      summary: "Report deleted",
     });
     return json({ ok: true });
   } catch (e) {

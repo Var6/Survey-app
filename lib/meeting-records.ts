@@ -39,8 +39,18 @@ export function parseLinks(raw: unknown, label: string): string[] {
   return links;
 }
 
+export type RecordKind = "meeting" | "camp";
+export const kindOf = (v: unknown): RecordKind => (v === "camp" ? "camp" : "meeting");
+
+/** Lookup lists behind each form's dropdowns. */
+export const TYPE_LIST = { meeting: "meeting_form_type", camp: "camp_form_type" } as const;
+
 export function parseParticipants(v: unknown): number {
-  const n = Number(String(v ?? "").trim());
+  // An empty box must not quietly become 0 participants.
+  if (v === null || v === undefined || String(v).trim() === "") {
+    throw new HttpError(400, "Enter the total number of participants");
+  }
+  const n = Number(String(v).trim());
   if (!Number.isInteger(n) || n < 0 || n > 100000) {
     throw new HttpError(400, "Total participants must be a whole number");
   }
@@ -68,7 +78,11 @@ export function buildRecordFilter(
   p: URLSearchParams
 ): Filter<MeetingRecordDoc> {
   const and: Filter<MeetingRecordDoc>[] = [];
+  // Records made before the camp form existed have no `kind`: they are meetings.
+  and.push(kindOf(p.get("kind")) === "camp" ? { kind: "camp" } : { kind: { $ne: "camp" } });
   if (user.role === "cm") and.push({ cmId: user._id });
+  const stake = p.get("stakeholder");
+  if (stake) and.push({ stakeholderType: stake });
   const from = p.get("from");
   const to = p.get("to");
   if (from && /^\d{4}-\d{2}-\d{2}$/.test(from)) and.push({ meetingDate: { $gte: from } });
@@ -91,7 +105,9 @@ export function buildRecordFilter(
   const q = (p.get("q") || "").trim();
   if (q) {
     const re = { $regex: escapeRe(q), $options: "i" };
-    and.push({ $or: [{ topic: re }, { remarks: re }, { communityName: re }, { cmName: re }] });
+    and.push({
+      $or: [{ topic: re }, { remarks: re }, { communityName: re }, { cmName: re }, { stakeholderName: re }, { participantNotes: re }],
+    });
   }
   return and.length ? { $and: and } : {};
 }

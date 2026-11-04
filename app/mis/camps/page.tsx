@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import CampsClient from "@/components/CampsClient";
 
-export const metadata = { title: "Camps · MIS" };
+export const metadata = { title: "Planned camps · MIS" };
 
 export default function CampsPage() {
   return (

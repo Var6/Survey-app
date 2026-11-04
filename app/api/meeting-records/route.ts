@@ -8,9 +8,11 @@ import { audit } from "@/lib/audit";
 import { clip } from "@/lib/schedule";
 import { istToday } from "@/lib/time";
 import {
+  TYPE_LIST,
   buildRecordFilter,
   checkMeetingDate,
   cleanTopic,
+  kindOf,
   parseLinks,
   parseParticipants,
 } from "@/lib/meeting-records";
@@ -30,7 +32,7 @@ export async function GET(req: Request) {
     const pageSize = Math.min(Math.max(Number(p.get("pageSize")) || 100, 1), 200);
 
     const col = await meetingRecordsCol();
-    const [docs, total, byType, sum] = await Promise.all([
+    const [docs, total, byType, sum, byStakeholder] = await Promise.all([
       col
         .find(filter)
         .sort({ meetingDate: -1, submittedAt: -1, _id: -1 })
@@ -66,6 +68,14 @@ export async function GET(req: Request) {
           },
         ])
         .toArray(),
+      // Camp reports: who supported them (Government / NGO …).
+      col
+        .aggregate<{ _id: string; label: string; n: number }>([
+          { $match: { $and: [filter, { stakeholderType: { $exists: true } }] } },
+          { $group: { _id: "$stakeholderType", label: { $first: "$stakeholderTypeLabel" }, n: { $sum: 1 } } },
+          { $sort: { n: -1 } },
+        ])
+        .toArray(),
     ]);
     return json({
       records: docs.map(publicMeetingRecord),
@@ -78,6 +88,7 @@ export async function GET(req: Request) {
         participants: sum[0]?.people ?? 0,
         missingEvidence: sum[0]?.noEvidence ?? 0,
         byType: byType.map((t) => ({ key: t._id, label: t.label, meetings: t.n, participants: t.people })),
+        byStakeholder: byStakeholder.map((t) => ({ key: t._id, label: t.label, count: t.n })),
       },
     });
   } catch (e) {
@@ -92,15 +103,33 @@ export async function POST(req: Request) {
     await ensureIndexes();
     const body = await readJson<Record<string, unknown>>(req);
 
+    const kind = kindOf(body.kind);
     const meetingDate = checkMeetingDate(body.meetingDate, istToday());
     const settlementCode = clip(body.settlementCode, 60);
     const settlement = settlementCode ? await getSettlement(settlementCode) : null;
     if (!settlement) throw new HttpError(400, "Choose the community");
-    const type = await findLookup("meeting_form_type", clip(body.typeKey, 80));
-    if (!type) throw new HttpError(400, "Choose the type of meeting");
+    const type = await findLookup(TYPE_LIST[kind], clip(body.typeKey, 80));
+    if (!type) throw new HttpError(400, kind === "camp" ? "Choose the type of camp" : "Choose the type of meeting");
+
+    // Camp form: who supported the camp.
+    let camp: Partial<MeetingRecordDoc> = {};
+    if (kind === "camp") {
+      const stake = await findLookup("camp_stakeholder_type", clip(body.stakeholderType, 80));
+      if (!stake) throw new HttpError(400, "Choose who supported the camp (Government, NGO …)");
+      const stakeName = clip(body.stakeholderName, 200);
+      if (stakeName.length < 2) throw new HttpError(400, "Write the name of the supporting organisation or person");
+      camp = {
+        stakeholderType: stake.key,
+        stakeholderTypeLabel: stake.label,
+        stakeholderName: stakeName,
+        participantNotes: clip(body.participantNotes, 2000) || undefined,
+      };
+    }
 
     const now = new Date();
     const doc: MeetingRecordDoc = {
+      kind,
+      ...camp,
       meetingDate,
       settlementCode,
       communityName: settlement.label,
@@ -123,22 +152,25 @@ export async function POST(req: Request) {
     await notifyRoles(
       ["mis", "programme_manager", "director"],
       {
-        category: "meeting_report",
-        title: `Meeting report · ${settlement.label}`,
-        body: `${user.name} filed a ${type.label} on ${meetingDate} in ${settlement.label} — ${doc.totalParticipants} participants.`,
-        relatedType: "meeting_record",
+        category: kind === "camp" ? "camp_report" : "meeting_report",
+        title: `${kind === "camp" ? "Camp" : "Meeting"} report · ${settlement.label}`,
+        body:
+          kind === "camp"
+            ? `${user.name} filed a ${type.label} camp held on ${meetingDate} in ${settlement.label}, supported by ${doc.stakeholderTypeLabel} (${doc.stakeholderName}) — ${doc.totalParticipants} participants.`
+            : `${user.name} filed a ${type.label} on ${meetingDate} in ${settlement.label} — ${doc.totalParticipants} participants.`,
+        relatedType: kind === "camp" ? "camp_record" : "meeting_record",
         relatedId: String(res.insertedId),
-        dedupeKey: `meeting_report:${res.insertedId}`,
+        dedupeKey: `${kind}_report:${res.insertedId}`,
       },
       { excludeUserId: user._id }
     );
     await audit({
       actor: user,
-      action: "meeting_record.created",
+      action: `${kind}_record.created`,
       entityType: "meeting_record",
       entityId: String(res.insertedId),
       ref: `${settlement.label} ${meetingDate}`,
-      summary: `Meeting report filed (${type.label})`,
+      summary: `${kind === "camp" ? "Camp" : "Meeting"} report filed (${type.label})`,
     });
     return json({ record: publicMeetingRecord({ ...doc, _id: res.insertedId }) }, 201);
   } catch (e) {
