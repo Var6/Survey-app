@@ -115,6 +115,10 @@ export function presetTypesForCase(module: string, subcategory: string, metaDocs
   return hit ? [hit.key] : [];
 }
 
+/** Hindi that went through a non-Unicode step comes out as literal "?", one per character. */
+export const LOST_NAME_REGEX = "\\?{3,}";
+export const isNameLost = (name: string) => new RegExp(LOST_NAME_REGEX).test(name);
+
 export function typeLabels(referral: string, keys: string[]): string[] {
   const all = supportTypesFor(referral);
   return keys.map((k) => all.find((t) => t.key === k)?.label ?? k);

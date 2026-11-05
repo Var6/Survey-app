@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { PageTitle } from "@/components/ui";
 import FinanceClient from "@/components/FinanceClient";
 
@@ -11,7 +12,9 @@ export default function FinancePage() {
         subtitle="Expenses, reimbursements, statement and export"
         back={{ href: "/director", label: "Overview" }}
       />
-      <FinanceClient />
+      <Suspense fallback={<p className="text-sm text-zinc-500">Loading…</p>}>
+        <FinanceClient />
+      </Suspense>
     </div>
   );
 }

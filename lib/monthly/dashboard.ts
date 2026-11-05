@@ -2,6 +2,7 @@ import { casesCol } from "@/lib/models";
 import { computeDashboard } from "@/lib/weekly/dashboard";
 import { MODULE_LIST } from "@/lib/cases/modules";
 import { defaultReportMonth } from "./month";
+import { istToday } from "@/lib/time";
 
 export { defaultReportMonth };
 
@@ -29,7 +30,7 @@ export function monthOf(date: Date) {
 /** Per-module case activity for PMM Section G (Action cases & service follow-up). */
 async function caseModuleStats(monthStart: Date, monthEnd: Date) {
   const col = await casesCol();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = istToday();
   const agg = await col
     .aggregate([
       {

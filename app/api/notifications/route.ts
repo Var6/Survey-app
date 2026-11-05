@@ -20,6 +20,9 @@ const CATEGORIES: NotificationCategory[] = [
   "support_record",
   "visit_report",
   "report_reminder",
+  "requisition_submitted",
+  "requisition_decided",
+  "requisition_paid",
 ];
 
 /**

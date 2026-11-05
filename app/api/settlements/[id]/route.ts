@@ -58,6 +58,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
         active: updated!.active,
         order: updated!.order,
         surveyCount: await surveys.countDocuments({ settlementCode: updated!.code }),
+        householdCount: await surveys.countDocuments({ settlementCode: updated!.code, status: "complete" }),
       },
     });
   } catch (e) {

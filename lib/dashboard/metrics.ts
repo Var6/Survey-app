@@ -1,9 +1,16 @@
 import { casesCol, surveysCol } from "@/lib/models";
-import { SETTLEMENT_BY_CODE } from "@/lib/questionnaire/settlements";
+import { settlementLabels } from "@/lib/settlements";
 import { MODULE_LIST } from "@/lib/cases/modules";
 import { classifyMaternalCases } from "@/lib/cases/store";
-import { buildSurveyFilter } from "@/lib/surveys";
-import { buildCaseFilter, parseCaseQuery } from "@/lib/cases/query";
+import {
+  HIGH_PRIORITY,
+  TARGET_HOUSEHOLDS,
+  completeSurveyFilter,
+  countCasesFor,
+  countCompleteSurveys,
+  countFollowupHouseholds,
+  countIncompleteSurveys,
+} from "./definitions";
 import { SEGMENTS } from "@/lib/cases/segments";
 import type { UserDoc } from "@/lib/models";
 
@@ -30,7 +37,8 @@ export interface Tile {
 }
 
 export interface DashboardMetrics {
-  householdsSurveyed: { count: number; target: number; percent: number };
+  /** Households with a COMPLETE survey; `incomplete` are still being filled in. */
+  householdsSurveyed: { count: number; target: number; percent: number; incomplete: number };
   /** Distinct households with at least one open case. */
   householdsFollowup: number;
   /** Case-based, clickable tiles. */
@@ -59,19 +67,10 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
   } catch (e) {
     console.error("[dashboard] could not classify maternal cases:", e);
   }
-  const surveyUser = { _id: user._id, role: "director" } as never;
-  const surveyCount = (flags: string) =>
-    surveys.countDocuments(buildSurveyFilter(surveyUser, new URLSearchParams(flags)));
+  // Survey tiles count complete surveys with the same filter their link opens.
+  const surveyCount = (flags: string) => countCompleteSurveys(flags);
 
-  /**
-   * Count cases for a link — identical logic to the list the link opens. The
-   * module is part of the link, so it must be part of the count too.
-   */
-  const count = async (query: string, module?: string) => {
-    const params = new URLSearchParams(query);
-    if (module && module !== "all") params.set("module", module);
-    return cases.countDocuments(await buildCaseFilter(user, parseCaseQuery(params)));
-  };
+  const count = (query: string, module?: string) => countCasesFor(user, query, module);
 
   const tileDefs: Omit<Tile, "value">[] = [
     { key: "open", label: "Open action cases", module: "all", query: "status=open" },
@@ -79,7 +78,7 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
       key: "urgent",
       label: "Urgent / high priority",
       module: "all",
-      query: "status=open&priority=urgent,high",
+      query: `status=open&priority=${HIGH_PRIORITY}`,
       tone: "warn",
     },
     { key: "overdue", label: "Overdue follow-ups", module: "all", query: "status=overdue", tone: "alert" },
@@ -126,25 +125,21 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
 
   const [
     householdsSurveyed,
+    incompleteSurveys,
     tileValues,
     maternalUnclassified,
-    householdAgg,
+    householdsFollowup,
     moduleAgg,
     pwdAgg,
     settlementAgg,
     directorIntervention,
     pwdHouseholds,
   ] = await Promise.all([
-    surveys.countDocuments({}),
+    countCompleteSurveys(),
+    countIncompleteSurveys(),
     Promise.all(tileDefs.map((t) => count(t.query!, t.module))),
     count("status=open&segment=maternal_unspecified", "maternal"),
-    cases
-      .aggregate([
-        { $match: { closed: false } },
-        { $group: { _id: "$householdId" } },
-        { $count: "n" },
-      ])
-      .toArray(),
+    countFollowupHouseholds(),
     cases
       .aggregate([
         { $match: { closed: false } },
@@ -153,6 +148,7 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
       .toArray(),
     surveys
       .aggregate([
+        { $match: completeSurveyFilter() },
         {
           $project: {
             pwd: {
@@ -188,6 +184,7 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
       .toArray(),
     surveys
       .aggregate([
+        { $match: completeSurveyFilter() },
         { $group: { _id: "$settlementCode", value: { $sum: 1 } } },
         { $sort: { value: -1 } },
       ])
@@ -210,11 +207,12 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
     module: m.key,
   }));
 
+  const labels = await settlementLabels();
   const bySettlement = settlementAgg.map((s) => {
     const code = (s._id as string) || "unknown";
     return {
       code,
-      label: SETTLEMENT_BY_CODE[code]?.label || code,
+      label: labels[code] || code,
       value: s.value as number,
     };
   });
@@ -222,10 +220,11 @@ export async function computeDashboardMetrics(user: Actor): Promise<DashboardMet
   return {
     householdsSurveyed: {
       count: householdsSurveyed,
-      target: 1600,
-      percent: Math.round((householdsSurveyed / 1600) * 100),
+      target: TARGET_HOUSEHOLDS,
+      percent: Math.round((householdsSurveyed / TARGET_HOUSEHOLDS) * 100),
+      incomplete: incompleteSurveys,
     },
-    householdsFollowup: (householdAgg[0]?.n as number) || 0,
+    householdsFollowup,
     tiles,
     pwd: {
       total: pwdTotal,

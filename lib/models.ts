@@ -426,7 +426,10 @@ export type NotificationCategory =
   | "camp_report"
   | "support_record"
   | "visit_report"
-  | "report_reminder";
+  | "report_reminder"
+  | "requisition_submitted"
+  | "requisition_decided"
+  | "requisition_paid";
 
 export interface NotificationDoc {
   _id?: ObjectId;
@@ -435,7 +438,7 @@ export interface NotificationDoc {
   title: string;
   body: string;
   /** What the notification is about — the client builds the link for the viewer's role. */
-  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "camp_record" | "support_record" | "visit_record" | "monthly";
+  relatedType?: "case" | "camp" | "meeting" | "meeting_record" | "camp_record" | "support_record" | "visit_record" | "monthly" | "requisition";
   relatedId?: string;
   /** Unique per recipient: a retried job can never notify twice. */
   dedupeKey: string;

@@ -1,5 +1,14 @@
 import { surveysCol, reportsCol } from "@/lib/models";
-import { SETTLEMENTS } from "@/lib/questionnaire/settlements";
+import { listSettlements } from "@/lib/settlements";
+import {
+  TARGET_HOUSEHOLDS,
+  completeSurveyFilter,
+  countActiveMobilisers,
+  countCasesFor,
+  countCompleteSurveys,
+  countFollowupHouseholds,
+  countTargetGroups,
+} from "@/lib/dashboard/definitions";
 
 /** ISO-ish week bucket (Monday–Sunday) for a given date. */
 export function weekOf(date: Date) {
@@ -25,46 +34,48 @@ export function weekOf(date: Date) {
   return { weekStart: monday, weekEnd: sunday, week, year, reportId };
 }
 
+/**
+ * Weekly / monthly dashboard. Every figure that the programme dashboard also
+ * shows is counted the same way (see lib/dashboard/definitions.ts): complete
+ * surveys for households, the case list's own filter for case figures, the
+ * member list for people. Only the "this period" numbers depend on the dates.
+ */
 export async function computeDashboard(weekStart: Date, weekEnd: Date) {
   const surveys = await surveysCol();
   const reports = await reportsCol();
-  const inWeek = { createdAt: { $gte: weekStart, $lte: weekEnd } };
+  const complete = completeSurveyFilter();
+  const inWeek = { ...complete, createdAt: { $gte: weekStart, $lte: weekEnd } };
+  const director = { _id: undefined, role: "director" } as never;
+  const cases = (q: string, module?: string) => countCasesFor(director, q, module);
 
   const [
     householdsWeek,
     householdsCumulative,
     urgentHealth,
-    pregnant,
+    maternalOpen,
+    pregnantWomen,
+    mothersWithNewborn,
     entitlementGaps,
     followupHouseholds,
     pwd,
     widow,
-    pregnantWomen,
-    mothersWithNewborn,
+    targets,
+    settlementRows,
+    totalMobilisers,
   ] = await Promise.all([
     surveys.countDocuments(inWeek),
-    surveys.countDocuments({}),
-    surveys.countDocuments({ "data.health_referral_need": "urgent" }),
-    surveys.countDocuments({ "data.has_pregnant_or_lactating": "yes" }),
-    surveys.countDocuments({ "data.entitlement_followup_required": { $in: ["yes", "maybe"] } }),
-    surveys.countDocuments({
-      $or: [
-        { "data.entitlement_followup_required": { $in: ["yes", "maybe"] } },
-        { "data.health_referral_need": { $in: ["urgent", "routine"] } },
-        { "data.followup_required": { $in: ["yes", "maybe"] } },
-      ],
-    }),
-    surveys.countDocuments({ "data.has_pwd_member": "yes" }),
-    surveys.countDocuments({ "data.has_widow_single_woman": "yes" }),
-    // Pregnant and new mothers are different groups (section H asks the month).
-    surveys.countDocuments({
-      "data.has_pregnant_or_lactating": "yes",
-      "data.pregnancy_month": { $in: ["m1_3", "m4_6", "m7_9"] },
-    }),
-    surveys.countDocuments({
-      "data.has_pregnant_or_lactating": "yes",
-      "data.pregnancy_month": "delivered_recently",
-    }),
+    countCompleteSurveys(),
+    cases("status=open&priority=urgent", "health"),
+    cases("status=open", "maternal"),
+    cases("status=open&segment=pregnant", "maternal"),
+    cases("status=open&segment=newborn_mother", "maternal"),
+    cases("status=open", "entitlements"),
+    countFollowupHouseholds(),
+    countCompleteSurveys("pwd=1"),
+    surveys.countDocuments({ ...complete, "data.has_widow_single_woman": "yes" }),
+    countTargetGroups(),
+    listSettlements(),
+    countActiveMobilisers(),
   ]);
 
   const settlementsCovered = (await surveys.distinct("settlementCode", inWeek)).length;
@@ -78,31 +89,15 @@ export async function computeDashboard(weekStart: Date, weekEnd: Date) {
     })
   ).forEach((id) => mobIds.add(String(id)));
 
-  const tgAgg = await surveys
-    .aggregate([
-      {
-        $group: {
-          _id: null,
-          children_0_3: { $sum: { $ifNull: ["$data.num_children_0_3", 0] } },
-          children_4_12: { $sum: { $ifNull: ["$data.num_children_4_12", 0] } },
-          youth: { $sum: { $ifNull: ["$data.num_youth_13_24", 0] } },
-          women: { $sum: { $ifNull: ["$data.num_women_15_49", 0] } },
-          elderly: { $sum: { $ifNull: ["$data.num_elderly_60plus", 0] } },
-        },
-      },
-    ])
-    .toArray();
-  const t = tgAgg[0] || {};
-
   const weekBy = await surveys
     .aggregate([{ $match: inWeek }, { $group: { _id: "$settlementCode", n: { $sum: 1 } } }])
     .toArray();
   const cumBy = await surveys
-    .aggregate([{ $group: { _id: "$settlementCode", n: { $sum: 1 } } }])
+    .aggregate([{ $match: complete }, { $group: { _id: "$settlementCode", n: { $sum: 1 } } }])
     .toArray();
   const weekMap = new Map(weekBy.map((x) => [String(x._id), x.n as number]));
   const cumMap = new Map(cumBy.map((x) => [String(x._id), x.n as number]));
-  const settlementSplit = SETTLEMENTS.map((s) => ({
+  const settlementSplit = settlementRows.map((s) => ({
     code: s.code,
     label: s.label,
     week: weekMap.get(s.code) || 0,
@@ -127,26 +122,27 @@ export async function computeDashboard(weekStart: Date, weekEnd: Date) {
 
   return {
     settlementsCovered,
-    totalSettlements: 12,
+    totalSettlements: settlementRows.length,
     mobiliserDeployment: mobIds.size,
-    totalMobilisers: 6,
+    totalMobilisers,
     householdsWeek,
     householdsCumulative,
-    targetHouseholds: 1600,
+    targetHouseholds: TARGET_HOUSEHOLDS,
     followupHouseholds,
     urgentHealth,
-    pregnant,
+    // Pregnant women and mothers with a newborn are both maternal cases.
+    pregnant: maternalOpen,
     pregnantWomen,
     mothersWithNewborn,
     entitlementGaps,
     pwd,
     widow,
     targets: {
-      children_0_3: t.children_0_3 || 0,
-      children_4_12: t.children_4_12 || 0,
-      youth: t.youth || 0,
-      women: t.women || 0,
-      elderly: t.elderly || 0,
+      children_0_3: targets.children_0_3,
+      children_4_12: targets.children_4_12,
+      youth: targets.youth,
+      women: targets.women,
+      elderly: targets.elderly,
     },
     settlementSplit,
     dailyReports: daily.count,

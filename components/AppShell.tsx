@@ -77,7 +77,7 @@ function NavLinks({
                         className={active ? "text-white" : "text-zinc-400 dark:text-zinc-500"}
                       />
                     )}
-                    {!collapsed && <span className="truncate">{it.label}</span>}
+                    {!collapsed && <span className="min-w-0 leading-tight">{it.label}</span>}
                     {!collapsed && it.badge !== undefined && it.badge > 0 && (
                       <span
                         className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums ${

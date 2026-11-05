@@ -19,6 +19,9 @@ export const NOTIFICATION_LABEL: Record<string, string> = {
   support_record: "Support record",
   visit_report: "Visit report",
   report_reminder: "Report reminder",
+  requisition_submitted: "New request",
+  requisition_decided: "Request decided",
+  requisition_paid: "Request paid",
 };
 
 export function notificationHref(
@@ -44,6 +47,11 @@ export function notificationHref(
       return `${area}/support?open=${id}`;
     case "visit_record":
       return `${area}/visit-reports?open=${id}`;
+    case "requisition":
+      if (area === "/cm") return "/cm/requisitions";
+      if (area === "/finance") return `/finance/requisitions?open=${id}`;
+      if (area === "/director") return `/director/finance?open=${id}`;
+      return null;
     case "monthly":
       return area === "/director" ? "/director/reports" : `${area}/monthly`;
     default:

@@ -314,14 +314,16 @@ export default function VisitRecordsClient({ mode, canDelete = false }: { mode: 
   );
 }
 
+function Row({ label, value }: { label: string; value: string | null }) {
+  return value ? <div><p className="text-xs font-medium text-zinc-400">{label}</p><p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-100">{value}</p></div> : null;
+}
+
 function Detail({ r, staff, canDelete, onClose, onEdit, onDeleted }: { r: Rec; staff: boolean; canDelete: boolean; onClose: () => void; onEdit: () => void; onDeleted: () => void }) {
   const [err, setErr] = useState<string | null>(null);
   const del = async () => {
     if (!window.confirm("Delete this report permanently?")) return;
     try { await apiFetch(`/api/visit-records/${r.id}`, { method: "DELETE" }); onDeleted(); } catch (e) { setErr((e as Error).message); }
   };
-  const Row = ({ label, value }: { label: string; value: string | null }) =>
-    value ? <div><p className="text-xs font-medium text-zinc-400">{label}</p><p className="whitespace-pre-wrap text-zinc-800 dark:text-zinc-100">{value}</p></div> : null;
   return (
     <div className="fixed inset-0 z-40 print:hidden">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />

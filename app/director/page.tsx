@@ -1,9 +1,10 @@
+import { countActiveMobilisers } from "@/lib/dashboard/definitions";
 import ProgrammeDashboard from "@/components/ProgrammeDashboard";
+import { buildRequestFilter } from "@/lib/finance/requests";
 import { PageHeaderBroadcast } from "@/components/PageHeader";
 import { StatTile } from "@/components/charts";
 import {
   surveysCol,
-  usersCol,
   projectsCol,
   requisitionsCol,
 } from "@/lib/models";
@@ -13,14 +14,13 @@ export const metadata = { title: "Overview · Director" };
 async function getOps() {
   try {
     const surveys = await surveysCol();
-    const users = await usersCol();
     const projects = await projectsCol();
     const reqs = await requisitionsCol();
     const [unsynced, cms, projectCount, pendingReq] = await Promise.all([
       surveys.countDocuments({ "sync.status": { $ne: "synced" } }),
-      users.countDocuments({ role: "cm" }),
+      countActiveMobilisers(),
       projects.countDocuments({}),
-      reqs.countDocuments({ status: "pending" }),
+      reqs.countDocuments(await buildRequestFilter({ role: "director" }, { status: "pending" })),
     ]);
     return { unsynced, cms, projectCount, pendingReq };
   } catch {
@@ -50,7 +50,7 @@ export default async function DirectorHome() {
         <div>
           <h2 className="mb-2 text-sm font-semibold text-zinc-700 dark:text-zinc-300">Operations</h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatTile label="Mobilisers" value={ops.cms} href="/director/users" />
+            <StatTile label="Active mobilisers" value={ops.cms} href="/director/users" />
             <StatTile label="Projects" value={ops.projectCount} href="/director/projects" />
             <StatTile
               label="Pending Frappe sync"
@@ -59,10 +59,10 @@ export default async function DirectorHome() {
               href="/director/sync"
             />
             <StatTile
-              label="Requisitions to review"
+              label="Requests to review"
               value={ops.pendingReq}
               tone={ops.pendingReq > 0 ? "warn" : "normal"}
-              href="/director/finance"
+              href="/director/finance?tab=reimbursements&status=pending"
             />
           </div>
         </div>

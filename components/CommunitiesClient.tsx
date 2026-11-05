@@ -12,6 +12,8 @@ interface Settlement {
   active: boolean;
   order: number;
   surveyCount: number;
+  /** Households with a complete survey — the figure the dashboards use. */
+  householdCount: number;
 }
 interface Mobiliser {
   id: string;
@@ -218,8 +220,12 @@ export default function CommunitiesClient() {
                         )}
                       </p>
                       <p className="text-xs text-zinc-500">
-                        ID prefix {s.hhPrefix} · {s.surveyCount} survey
-                        {s.surveyCount === 1 ? "" : "s"} ·{" "}
+                        ID prefix {s.hhPrefix} · {s.householdCount} household
+                        {s.householdCount === 1 ? "" : "s"} surveyed
+                        {s.surveyCount > s.householdCount
+                          ? ` (+${s.surveyCount - s.householdCount} in progress)`
+                          : ""}{" "}
+                        ·{" "}
                         {cms.filter((c) => c.communities.includes(s.code)).length} mobiliser(s)
                       </p>
                     </div>

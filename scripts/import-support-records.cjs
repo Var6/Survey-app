@@ -6,6 +6,9 @@
  *   node scripts/import-support-records.cjs <file.csv> --apply        write to the database in .env.local
  *   node scripts/import-support-records.cjs --attribute [--apply]     give earlier imported meeting / camp / support
  *                                                                     records the CM assigned to their community
+ *   node scripts/import-support-records.cjs <file.csv> --restore-names [--apply]
+ *                                                                     put back names saved as "???", matched on each record's own
+ *                                                                     photo link, from any copy of the original answers
  *   add  --uri mongodb://127.0.0.1:27017 --db janman_test  to use another database
  *
  * Safe to run again: each row has a stable key, and a case is only acted on
@@ -18,6 +21,7 @@ const args = process.argv.slice(2);
 const opt = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
 const APPLY = args.includes("--apply");
 const ATTRIBUTE = args.includes("--attribute");
+const RESTORE = args.includes("--restore-names");
 const file = args.find((a, i) => !a.startsWith("--") && args[i - 1] !== "--uri" && args[i - 1] !== "--db");
 
 const env = {};
@@ -35,6 +39,21 @@ const jiti = createJiti(__filename, { fsCache: false, moduleCache: false, alias:
   const host = new URL(process.env.MONGODB_URI.replace("mongodb+srv", "https").replace(/^mongodb:/, "http:")).host;
   console.log(`target: ${host} / ${process.env.MONGODB_DB}   mode: ${APPLY ? "APPLY (writes)" : "DRY RUN (writes nothing)"}`);
   const imp = jiti(path.join(ROOT, "lib/support/importer.ts"));
+
+  if (RESTORE) {
+    if (!file) { console.error("usage: node scripts/import-support-records.cjs <file.csv> --restore-names [--apply]"); process.exit(1); }
+    const r = await imp.restoreLostNames(fs.readFileSync(file, "utf8"), { apply: APPLY });
+    console.log(`\nNames saved as question marks: ${r.damaged}`);
+    console.log(`  ${APPLY ? "restored" : "can be restored"}: ${r.restored.length} (${r.suggested} of them get possible cases for a person to confirm; none is linked or closed automatically)`);
+    console.log(`  this file has no row with that photo: ${r.noRow}`);
+    console.log(`  the row has question marks too: ${r.stillLost}`);
+    console.log(`  two different names for one photo, left alone: ${r.conflicting.length}`);
+    r.conflicting.slice(0, 10).forEach((c) => console.log("   -", c));
+    if (r.lengthDiffers.length) { console.log(`  restored, but not the length the question marks showed (check these): ${r.lengthDiffers.length}`); r.lengthDiffers.slice(0, 10).forEach((c) => console.log("   -", c)); }
+    if (r.restored.length) { console.log("  sample:"); r.restored.slice(0, 5).forEach((x) => console.log(`   ${x.on}  ${x.from} → ${x.to}`)); }
+    if (!APPLY) console.log("\nDRY RUN — nothing written. Add --apply.");
+    process.exit(0);
+  }
 
   if (ATTRIBUTE) {
     const r = await imp.attributeRecordsToCms({ apply: APPLY });

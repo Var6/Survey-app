@@ -100,10 +100,10 @@ export default function CasesOverview({ basePath }: { basePath: string }) {
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <StatTile label="Open cases" value={data.totals.open} href={`${basePath}/cases/all`} />
             <StatTile
-              label="Urgent (open)"
+              label="Urgent / high priority"
               value={data.totals.urgent}
               tone={data.totals.urgent > 0 ? "alert" : "normal"}
-              href={`${basePath}/cases/all?priority=urgent`}
+              href={`${basePath}/cases/all?status=open&priority=urgent,high`}
             />
             <StatTile
               label="Overdue"
@@ -164,7 +164,7 @@ export default function CasesOverview({ basePath }: { basePath: string }) {
                     <div className="flex flex-col items-end gap-1">
                       {m.urgent > 0 && (
                         <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-600 dark:bg-red-950/50 dark:text-red-400">
-                          {m.urgent} urgent
+                          {m.urgent} high priority
                         </span>
                       )}
                       {m.overdue > 0 && (

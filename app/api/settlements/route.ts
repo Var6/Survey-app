@@ -15,11 +15,18 @@ export async function GET(req: Request) {
     // Household counts make it obvious which communities are in use.
     const surveys = await surveysCol();
     const counts = await surveys
-      .aggregate<{ _id: string; n: number }>([
-        { $group: { _id: "$settlementCode", n: { $sum: 1 } } },
+      .aggregate<{ _id: string; n: number; done: number }>([
+        {
+          $group: {
+            _id: "$settlementCode",
+            n: { $sum: 1 },
+            done: { $sum: { $cond: [{ $eq: ["$status", "complete"] }, 1, 0] } },
+          },
+        },
       ])
       .toArray();
     const byCode = new Map(counts.map((c) => [c._id, c.n]));
+    const doneByCode = new Map(counts.map((c) => [c._id, c.done]));
 
     return json({
       settlements: rows.map((r) => ({
@@ -29,7 +36,10 @@ export async function GET(req: Request) {
         hhPrefix: r.hhPrefix,
         active: r.active,
         order: r.order,
+        // every survey (decides whether a community can be deleted) …
         surveyCount: byCode.get(r.code) || 0,
+        // … and the households with a complete survey (the number shown everywhere else)
+        householdCount: doneByCode.get(r.code) || 0,
       })),
     });
   } catch (e) {
@@ -96,6 +106,7 @@ export async function POST(req: Request) {
           active: true,
           order: doc.order,
           surveyCount: 0,
+          householdCount: 0,
         },
       },
       201

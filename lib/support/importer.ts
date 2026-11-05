@@ -11,7 +11,7 @@ import {
 import { parseCsv } from "@/lib/csv";
 import { parseLinks } from "@/lib/meeting-records";
 import { audit } from "@/lib/audit";
-import { REFERRAL_BY_KEY, parseDocumentTypes, supportTypesFor, typeLabels } from "./schema";
+import { LOST_NAME_REGEX, REFERRAL_BY_KEY, isNameLost, parseDocumentTypes, supportTypesFor, typeLabels } from "./schema";
 import { matchRecord } from "./match";
 import { closeCaseDirect, cleanPhone, onlyCmOf } from "./service";
 import { evaluateCase } from "./evidence";
@@ -49,6 +49,10 @@ const COMMUNITY: Record<string, string> = {
   "shanti kabar": "shanti_kabra",
   "kheruganj": "kheruganj",
 };
+
+/** Stable key of a sheet row, so importing the same file again adds nothing. */
+const sheetRowKey = (r: string[], name: string) =>
+  crypto.createHash("sha1").update(["support", r[0], r[1], (r[2] || "").trim(), name, r[6]].join("|")).digest("hex").slice(0, 24);
 
 const mdy = (s: string) => {
   const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s.trim());
@@ -118,6 +122,8 @@ export async function importSupportSheet(csvText: string, opts: { apply: boolean
     if (!code || !labels[code]) { report.problems.push(`row ${line}: community “${commRaw}” is not a known community`); continue; }
     if (!date) { report.problems.push(`row ${line}: bad date “${r[1]}”`); continue; }
     if (name.length < 2) { report.problems.push(`row ${line}: no beneficiary name`); continue; }
+    // Hindi saved through a non-Unicode step (Excel "Save as CSV") turns into literal "?".
+    if (isNameLost(name)) { report.problems.push(`row ${line}: the name is question marks (“${name}”) — the Hindi was lost when the file was saved; export the sheet again as CSV (UTF-8)`); continue; }
     const referral = REFERRAL_BY_KEY.entitlements; // this sheet is the Document Support tab
     const { keys: typeKeys, unknown } = parseDocumentTypes(r[6] || "");
     if (!typeKeys.length) { report.problems.push(`row ${line}: type of support “${r[6]}” not recognised`); continue; }
@@ -132,7 +138,7 @@ export async function importSupportSheet(csvText: string, opts: { apply: boolean
     const remarksRaw = (r[9] || "").trim();
     const remarks = /^(na|n\/a|nil|-)$/i.test(remarksRaw) ? undefined : remarksRaw || undefined;
 
-    const importKey = crypto.createHash("sha1").update(["support", r[0], r[1], commRaw, name, r[6]].join("|")).digest("hex").slice(0, 24);
+    const importKey = sheetRowKey(r, name);
     if (keys.has(importKey)) { report.problems.push(`row ${line}: duplicate of an earlier row`); continue; }
     keys.add(importKey);
 
@@ -252,4 +258,93 @@ export async function attributeRecordsToCms(opts: { apply: boolean }) {
     }
   }
   return { perCm: out, leftWithOffice: skipped };
+}
+
+const DRIVE_ID = /(?:[?&]id=|\/d\/)([-\w]{20,})/g;
+const driveIds = (text: string) => [...text.matchAll(DRIVE_ID)].map((m) => m[1]);
+const nameShape = (s: string) => s.trim().split(/\s+/).map((w) => [...w].length).join(" ");
+const isNameHeader = (h: string) => /benefici|लाभार्थी/i.test(h) && /name|नाम/i.test(h);
+
+export interface RestoreReport {
+  damaged: number;
+  restored: { from: string; to: string; on: string }[];
+  /** Restored, but the name is not the length the question marks showed. Worth a look. */
+  lengthDiffers: string[];
+  noRow: number;
+  stillLost: number;
+  conflicting: string[];
+  suggested: number;
+}
+
+/**
+ * Put back names saved as "???" from any copy of the original answers (the
+ * Google Form's own responses, for example). Every damaged record has its own
+ * proof-photo link, so a row is matched on that link and nothing else: no
+ * similar spellings, no guessing. A record with no row, a row that also has
+ * question marks, or two different names is left exactly as it is.
+ * Cases are never linked or closed here: a person confirms the suggestions.
+ */
+export async function restoreLostNames(csv: string, opts: { apply: boolean; by?: string }): Promise<RestoreReport> {
+  const table = parseCsv(csv.replace(/^\uFEFF/, ""));
+  const headIdx = table.findIndex((r) => r.some(isNameHeader));
+  if (headIdx < 0) throw new Error("This file has no column for the beneficiary's name");
+  const nameCols = table[headIdx].flatMap((h, i) => (isNameHeader(h) ? [i] : []));
+
+  // The name is part of a sheet row's key: keep it in step, or importing this
+  // file again would add every repaired row a second time.
+  const sheetLayout = nameCols[0] === 4;
+  const namesByPhoto = new Map<string, Map<string, string[]>>();
+  for (const r of table.slice(headIdx + 1)) {
+    const name = nameCols.map((c) => (r[c] || "").trim().replace(/\s+/g, " ")).find(Boolean);
+    if (!name) continue;
+    for (const id of driveIds(r.join(" "))) {
+      if (!namesByPhoto.has(id)) namesByPhoto.set(id, new Map());
+      namesByPhoto.get(id)!.set(name, r);
+    }
+  }
+
+  const col = await supportRecordsCol();
+  const damaged = await col.find({ beneficiaryName: { $regex: LOST_NAME_REGEX } }).toArray();
+  const report: RestoreReport = { damaged: damaged.length, restored: [], lengthDiffers: [], noRow: 0, stillLost: 0, conflicting: [], suggested: 0 };
+  const by = opts.by || "Name repair";
+
+  for (const d of damaged) {
+    const rows = new Map((d.photoLinks || []).flatMap(driveIds).flatMap((id) => [...(namesByPhoto.get(id) ?? [])]));
+    const found = [...rows.keys()];
+    const good = found.filter((n) => !isNameLost(n));
+    if (!found.length) { report.noRow++; continue; }
+    if (!good.length) { report.stillLost++; continue; }
+    if (good.length > 1) { report.conflicting.push(`${d.supportDate} ${d.supportTypeLabels.join(", ")}: ${good.join(" / ")}`); continue; }
+    const name = good[0];
+    if (nameShape(name) !== nameShape(d.beneficiaryName)) report.lengthDiffers.push(`“${d.beneficiaryName}” → “${name}”`);
+    report.restored.push({ from: d.beneficiaryName, to: name, on: d.supportDate });
+
+    const m = await matchRecord({ settlementCode: d.settlementCode, referral: d.referral, beneficiaryName: name, typeKeys: d.supportTypes });
+    if (!d.caseId && m.suggestions.length) report.suggested++;
+    if (!opts.apply) continue;
+    const now = new Date();
+    await col.updateOne(
+      { _id: d._id, beneficiaryName: d.beneficiaryName },
+      {
+        $set: {
+          beneficiaryName: name,
+          updatedAt: now,
+          ...(sheetLayout && d.importKey ? { importKey: sheetRowKey(rows.get(name)!, name) } : {}),
+          ...(d.caseId ? {} : { linkStatus: m.suggestions.length ? "suggested" : "unlinked", suggestions: m.suggestions }),
+        },
+        $push: { history: { at: now, by, note: `Name restored from the original answers (was “${d.beneficiaryName}”)` } },
+      } as never
+    );
+  }
+  if (opts.apply && report.restored.length) {
+    await audit({
+      actor: { name: by, role: "system" },
+      action: "support_record.names_restored",
+      entityType: "support_record",
+      entityId: "bulk",
+      ref: `${report.restored.length} records`,
+      summary: `Restored ${report.restored.length} names saved as question marks`,
+    });
+  }
+  return report;
 }

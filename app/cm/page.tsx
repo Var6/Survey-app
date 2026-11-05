@@ -61,20 +61,26 @@ export default async function CmHome() {
 
       {stats && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+          <Link
+            href="/cm/surveys"
+            className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-teal-600"
+          >
             <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
               {stats.total}
             </p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">My surveys</p>
-          </div>
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+          </Link>
+          <Link
+            href="/cm/surveys?sync=unsynced"
+            className="rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-teal-600"
+          >
             <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
               {stats.unsynced}
             </p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Saved, awaiting sync
             </p>
-          </div>
+          </Link>
         </div>
       )}
 

@@ -23,7 +23,8 @@ export async function GET() {
             urgent: {
               $sum: {
                 $cond: [
-                  { $and: [{ $eq: ["$closed", false] }, { $eq: ["$priority", "urgent"] }] },
+                  // urgent OR high — the same "high priority" the dashboard tile counts
+                  { $and: [{ $eq: ["$closed", false] }, { $in: ["$priority", ["urgent", "high"]] }] },
                   1,
                   0,
                 ],
@@ -46,7 +47,16 @@ export async function GET() {
             },
             pendingReview: {
               $sum: {
-                $cond: [{ $in: ["$workflowStatus", ["closure_requested", "under_review"]] }, 1, 0],
+                $cond: [
+                  {
+                    $and: [
+                      { $eq: ["$closed", false] },
+                      { $in: ["$workflowStatus", ["closure_requested", "under_review"]] },
+                    ],
+                  },
+                  1,
+                  0,
+                ],
               },
             },
           },

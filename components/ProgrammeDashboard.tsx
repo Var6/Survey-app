@@ -130,7 +130,7 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
     label: s.label,
     value: s.value,
     className: "bg-teal-500",
-    href: basePath ? `${basePath}/surveys?settlement=${encodeURIComponent(s.code)}` : undefined,
+    href: basePath ? `${basePath}/surveys?status=complete&settlement=${encodeURIComponent(s.code)}` : undefined,
   }));
 
   return (
@@ -145,7 +145,7 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
 
       {/* Hero: survey progress + headline tiles */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card href={basePath ? `${basePath}/surveys` : undefined}>
+        <Card href={basePath ? `${basePath}/surveys?status=complete` : undefined}>
           <div className="flex items-center gap-5">
             <ProgressRing value={m.householdsSurveyed.count} max={m.householdsSurveyed.target}>
               <span className="text-2xl font-bold tabular-nums text-zinc-900 dark:text-zinc-50">
@@ -160,6 +160,8 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
               </p>
               <p className="text-xs text-zinc-400">
                 Target {m.householdsSurveyed.target.toLocaleString("en-IN")}
+                {m.householdsSurveyed.incomplete > 0 &&
+                  ` · ${m.householdsSurveyed.incomplete} more still being filled in`}
               </p>
               {basePath && (
                 <p className="mt-1 text-[11px] font-medium text-teal-600 dark:text-teal-400">View surveys →</p>
@@ -234,14 +236,14 @@ export default function ProgrammeDashboard({ basePath }: { basePath?: string }) 
           label="Persons with disabilities"
           value={m.pwd.total}
           hint={`${m.pwd.children} children · ${m.pwd.adults} adults · in ${m.pwd.households} households`}
-          href={basePath ? `${basePath}/surveys?pwd=1` : undefined}
+          href={basePath ? `${basePath}/surveys?status=complete&pwd=1` : undefined}
         />
         <StatTile
           label="Escalated to Director"
           value={m.directorIntervention}
           tone={m.directorIntervention > 0 ? "alert" : "normal"}
           hint="Surveys flagged for the Director"
-          href={basePath ? `${basePath}/surveys?escalated=1` : undefined}
+          href={basePath ? `${basePath}/surveys?status=complete&escalated=1` : undefined}
         />
       </div>
     </div>

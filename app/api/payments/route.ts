@@ -16,6 +16,10 @@ const TYPES: PaymentType[] = ["salary", "benefit", "bonus", "other"];
 export async function GET(req: Request) {
   try {
     const user = await requireUser();
+    // Salary data: the person it is for, and the finance team. Nobody else.
+    if (user.role !== "cm" && user.role !== "director" && user.role !== "accountant") {
+      return json({ error: "Forbidden" }, 403);
+    }
     const params = new URL(req.url).searchParams;
 
     const filter: Record<string, unknown> = {};

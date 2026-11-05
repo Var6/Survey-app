@@ -26,7 +26,7 @@ if (!file) { console.error("usage: node scripts/import-meeting-records.cjs <file
 /* Community names as typed on the form → app community codes. */
 const COMMUNITY = {
   "naya kalijaan tola": "kalijaan_naya_tola",
-  "kalijaan": "singhia_tola", // "Kalijaan" on its own is read as Kalijaan 2 / Singhia Tola
+  "kalijaan": "kalijaan_naya_tola", // "Kalijaan" on its own is Naya Kalijaan Tola (confirmed for the meeting form)
   "anup nagar": "dhangar_tola",
   "shree ram tola": "khatal_patti",
   "baxaghat": "buxa_ghat",

@@ -146,7 +146,7 @@ export default function WeeklyDashboard({
           max={d.targetHouseholds}
           label="Households surveyed (cumulative)"
           color="text-emerald-500"
-          href={link("/surveys")}
+          href={link("/surveys?status=complete")}
         />
       </div>
 
@@ -155,7 +155,7 @@ export default function WeeklyDashboard({
         <StatTile
           label={`Households surveyed (${periodLabel})`}
           value={d.householdsWeek}
-          href={link(range ? `/surveys?from=${range.from}&to=${range.to}` : "/surveys")}
+          href={link(range ? `/surveys?status=complete&from=${range.from}&to=${range.to}` : "/surveys?status=complete")}
         />
         <StatTile
           label="Households need follow-up"
@@ -200,7 +200,7 @@ export default function WeeklyDashboard({
           label="PWD households"
           value={d.pwd}
           hint={`${d.widow} widow / single women`}
-          href={link("/surveys?pwd=1")}
+          href={link("/surveys?status=complete&pwd=1")}
         />
       </div>
 

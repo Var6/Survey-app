@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, formatMoney, formatDate } from "@/lib/client";
 import { uploadImage } from "@/lib/image";
 import { Card, Empty, Badge, inputClass, labelClass, btnPrimary, btnGhost } from "@/components/ui";
-import RequisitionsClient from "@/components/RequisitionsClient";
+import RequestsDesk from "@/components/RequestsDesk";
+import { useSearchParams } from "next/navigation";
 import ProjectsClient from "@/components/ProjectsClient";
 
 interface Project {
@@ -55,13 +56,19 @@ const TAB_LABEL: Record<Tab, string> = {
   funds: "Funds",
   expenses: "Expenses",
   payroll: "Payroll",
-  reimbursements: "Requests",
+  reimbursements: "Requisitions & reimbursements",
   statement: "Statement",
 };
 const CATEGORIES = ["travel", "materials", "camp", "refreshments", "communication", "salary", "printing", "other"];
 
-export default function FinanceClient() {
-  const [tab, setTab] = useState<Tab>("overview");
+export default function FinanceClient({ showRequests = true }: { showRequests?: boolean }) {
+  const urlParams = useSearchParams();
+  const tabs = TABS.filter((t) => showRequests || t !== "reimbursements");
+  const [tab, setTab] = useState<Tab>(() => {
+    const wanted = urlParams.get("tab") as Tab | null;
+    if (wanted && tabs.includes(wanted)) return wanted;
+    return showRequests && urlParams.get("open") ? "reimbursements" : "overview";
+  });
   const [projects, setProjects] = useState<Project[]>([]);
   const [err, setErr] = useState<string | null>(null);
 
@@ -74,7 +81,7 @@ export default function FinanceClient() {
   return (
     <div className="space-y-4">
       <div className="flex gap-1 overflow-x-auto">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -95,7 +102,7 @@ export default function FinanceClient() {
       {tab === "funds" && <ProjectsClient />}
       {tab === "expenses" && <Expenses projects={projects} />}
       {tab === "payroll" && <Payroll />}
-      {tab === "reimbursements" && <RequisitionsClient scope="director" />}
+      {tab === "reimbursements" && <RequestsDesk keepParams={{ tab: "reimbursements" }} />}
       {tab === "statement" && <Statement projects={projects} />}
     </div>
   );
